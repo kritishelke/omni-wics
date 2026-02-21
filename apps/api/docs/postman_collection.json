@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Omni MVP API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{apiBase}}/health"
+      }
+    },
+    {
+      "name": "Google OAuth Start",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"callbackScheme\": \"omni\"\n}"
+        },
+        "url": "{{apiBase}}/google/oauth/start"
+      }
+    },
+    {
+      "name": "Google Tasks",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          }
+        ],
+        "url": "{{apiBase}}/google/tasks"
+      }
+    },
+    {
+      "name": "Generate Plan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2026-02-21\",\n  \"energy\": \"med\"\n}"
+        },
+        "url": "{{apiBase}}/ai/plan"
+      }
+    },
+    {
+      "name": "Signal Drift",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"planBlockId\": \"{{planBlockId}}\",\n  \"minutes\": 5\n}"
+        },
+        "url": "{{apiBase}}/signals/drift"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "apiBase",
+      "value": "http://localhost:3001/v1"
+    },
+    {
+      "key": "jwt",
+      "value": ""
+    },
+    {
+      "key": "planBlockId",
+      "value": ""
+    }
+  ]
+}

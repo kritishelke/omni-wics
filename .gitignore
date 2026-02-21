@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+.DS_Store
+.env
+.env.local
+*.log
+coverage
+apps/api/dist
+apps/api/.env
+apps/ios/Omni/Config/Secrets.plist
+apps/ios/Omni/Config/Secrets.swift
+apps/ios/Omni.xcworkspace/xcuserdata
+apps/ios/*.xcworkspace/xcuserdata
+apps/ios/Omni.xcodeproj/xcuserdata
+apps/ios/DerivedData
