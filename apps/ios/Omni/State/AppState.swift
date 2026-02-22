@@ -578,14 +578,18 @@ final class AppState: ObservableObject {
             guard
                 let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
                 components.queryItems?.first(where: { $0.name == "success" })?.value == "1"
-            else {
+                else {
                 throw OmniAPIError.server("Google OAuth callback did not report success")
             }
 
-            try await googleStore.refreshTasks(api: api, token: token)
-            try await googleStore.refreshTaskLists(api: api, token: token)
-            try await googleStore.refreshEvents(for: todayString, api: api, token: token)
             try await loadIntegrationsStatus(token: token)
+            if integrationsStatus?.googleTasksConnected == true {
+                try? await googleStore.refreshTaskLists(api: api, token: token)
+                try? await googleStore.refreshTasks(api: api, token: token)
+            }
+            if integrationsStatus?.googleCalendarConnected == true {
+                try? await googleStore.refreshEvents(for: todayString, api: api, token: token)
+            }
             return true
         } catch {
             handleError(error)
@@ -629,7 +633,12 @@ final class AppState: ObservableObject {
             )
             planStore.setGeneratedPlan(generated)
             notifications.scheduleForPlan(generated, checkinCadenceMinutes: profile?.checkinCadenceMinutes ?? 60)
-            try await googleStore.refreshEvents(for: todayString, api: api, token: token)
+            if integrationsStatus == nil {
+                try? await loadIntegrationsStatus(token: token)
+            }
+            if integrationsStatus?.googleCalendarConnected == true {
+                try? await googleStore.refreshEvents(for: todayString, api: api, token: token)
+            }
             try await insightsStore.refreshToday(api: api, token: token, date: todayString)
             try await rewardsStore.refreshWeekly(api: api, token: token)
             return true
@@ -643,15 +652,21 @@ final class AppState: ObservableObject {
         guard let token = sessionStore.session?.accessToken else { return }
 
         do {
-            if fullRefresh {
-                try await googleStore.refreshTaskLists(api: api, token: token)
-            }
-
             try await loadProfile(token: token)
             try await loadIntegrationsStatus(token: token)
             try await planStore.refreshToday(api: api, token: token)
-            try await googleStore.refreshTasks(api: api, token: token)
-            try await googleStore.refreshEvents(for: todayString, api: api, token: token)
+
+            if integrationsStatus?.googleTasksConnected == true {
+                if fullRefresh {
+                    try await googleStore.refreshTaskLists(api: api, token: token)
+                }
+                try await googleStore.refreshTasks(api: api, token: token)
+            }
+
+            if integrationsStatus?.googleCalendarConnected == true {
+                try await googleStore.refreshEvents(for: todayString, api: api, token: token)
+            }
+
             try await insightsStore.refreshToday(api: api, token: token, date: todayString)
             try await rewardsStore.refreshWeekly(api: api, token: token)
         } catch {
@@ -665,7 +680,9 @@ final class AppState: ObservableObject {
 
         do {
             _ = try await planStore.refresh(date: day, api: api, token: token)
-            try await googleStore.refreshEvents(for: day, api: api, token: token)
+            if integrationsStatus?.googleCalendarConnected == true {
+                try await googleStore.refreshEvents(for: day, api: api, token: token)
+            }
         } catch {
             handleError(error)
         }
@@ -847,7 +864,8 @@ final class AppState: ObservableObject {
 
     func saveOnboardingIntake(
         weeklyBlocks: [OnboardingWeeklyBlockProfile],
-        sleepEnergy: OnboardingSleepEnergyProfile
+        sleepEnergy: OnboardingSleepEnergyProfile,
+        blockPreferences: OnboardingBlockPreferences?
     ) async -> Bool {
         guard let token = sessionStore.session?.accessToken else {
             errorMessage = "Session expired. Please sign in again."
@@ -877,7 +895,8 @@ final class AppState: ObservableObject {
                             typicalSleepHours: sleepEnergy.typicalSleepHours,
                             crashWindows: sleepEnergy.crashWindows,
                             suggestSleepAdjustments: sleepEnergy.suggestSleepAdjustments
-                        )
+                        ),
+                        blockPreferences: blockPreferences
                     )
                 )
             )
@@ -962,7 +981,8 @@ final class AppState: ObservableObject {
     private func mergedOnboardingEnergyProfile(
         weeklyBlocks: [OnboardingWeeklyBlockProfile]? = nil,
         sleepEnergy: OnboardingSleepEnergyProfile? = nil,
-        dayOpen: OnboardingDayOpenProfile? = nil
+        dayOpen: OnboardingDayOpenProfile? = nil,
+        blockPreferences: OnboardingBlockPreferences? = nil
     ) -> OnboardingEnergyProfile {
         let current = profile?.energyProfile
 
@@ -970,7 +990,8 @@ final class AppState: ObservableObject {
             onboardingVersion: 2,
             weeklyBlocks: weeklyBlocks ?? current?.weeklyBlocks,
             sleepEnergy: sleepEnergy ?? current?.sleepEnergy,
-            dayOpen: dayOpen ?? current?.dayOpen
+            dayOpen: dayOpen ?? current?.dayOpen,
+            blockPreferences: blockPreferences ?? current?.blockPreferences
         )
     }
 

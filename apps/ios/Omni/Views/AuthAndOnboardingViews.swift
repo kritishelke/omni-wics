@@ -9,12 +9,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             VStack(spacing: 24) {
                 Image("AppLogo")
@@ -22,10 +17,15 @@ struct AuthView: View {
                     .scaledToFit()
                     .frame(width: 92, height: 92)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(Color.omniAccent.opacity(0.45), lineWidth: 1)
+                    )
 
                 Text("Omni")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.white)
+                    .font(.omniScript(size: 56))
+                    .foregroundStyle(Color.omniGlow)
+                    .shadow(color: Color.omniGlow.opacity(0.7), radius: 10)
 
                 Text("Sign in to start your day plan")
                     .foregroundStyle(Color.omniMuted)
@@ -95,6 +95,7 @@ struct OnboardingFlowView: View {
 
     @State private var step = 0
     @State private var selectedBlocks: Set<String> = []
+    @State private var hardBlocks: Set<String> = []
     @State private var blockDrafts: [String: BlockDraft] = [:]
     @State private var currentBlockIndex = 0
     @State private var sleepTime = ""
@@ -138,12 +139,7 @@ struct OnboardingFlowView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color.omniBackground, Color.omniCard],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                OmniNebulaBackground()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -158,8 +154,10 @@ struct OnboardingFlowView: View {
                         case 2:
                             weeklyBlocksStep
                         case 3:
-                            blockLoopStep
+                            hardSoftBlocksStep
                         case 4:
+                            blockLoopStep
+                        case 5:
                             sleepEnergyStep
                         default:
                             dayOpenStep
@@ -195,7 +193,7 @@ struct OnboardingFlowView: View {
     }
 
     private var totalProgressValue: Double {
-        Double(max(1, orderedSelectedBlocks.count + 5))
+        Double(max(1, orderedSelectedBlocks.count + 6))
     }
 
     private var progressValue: Double {
@@ -207,11 +205,13 @@ struct OnboardingFlowView: View {
         case 2:
             return 3
         case 3:
-            return Double(4 + min(currentBlockIndex, max(0, orderedSelectedBlocks.count - 1)))
+            return 4
         case 4:
-            return Double(4 + orderedSelectedBlocks.count)
-        default:
+            return Double(5 + min(currentBlockIndex, max(0, orderedSelectedBlocks.count - 1)))
+        case 5:
             return Double(5 + orderedSelectedBlocks.count)
+        default:
+            return Double(6 + orderedSelectedBlocks.count)
         }
     }
 
@@ -304,12 +304,58 @@ struct OnboardingFlowView: View {
                         blockDrafts[block] = BlockDraft()
                     }
                 }
+                if hardBlocks.isEmpty {
+                    hardBlocks = Set(orderedSelectedBlocks.filter(defaultHardBlock))
+                }
                 currentBlockIndex = 0
                 step = 3
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.omniAccent)
             .disabled(orderedSelectedBlocks.isEmpty)
+        }
+    }
+
+    private var hardSoftBlocksStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Hard vs Soft Blocks")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+
+            Text("Hard blocks stay fixed in Calendar (opaque). Soft blocks are flexible (translucent).")
+                .foregroundStyle(Color.omniMuted)
+
+            ForEach(orderedSelectedBlocks, id: \.self) { block in
+                HStack {
+                    Text(block)
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { hardBlocks.contains(block) ? "hard" : "soft" },
+                        set: { value in
+                            if value == "hard" {
+                                hardBlocks.insert(block)
+                            } else {
+                                hardBlocks.remove(block)
+                            }
+                        }
+                    )) {
+                        Text("Hard").tag("hard")
+                        Text("Soft").tag("soft")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                }
+                .padding(10)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            Button("Continue") {
+                step = 4
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
         }
     }
 
@@ -398,7 +444,7 @@ struct OnboardingFlowView: View {
 
                 Button(isLastBlock ? "Done" : "Save & Next") {
                     if isLastBlock {
-                        step = 4
+                        step = 5
                     } else {
                         currentBlockIndex += 1
                     }
@@ -463,7 +509,7 @@ struct OnboardingFlowView: View {
                     guard isSavingProfile == false else { return }
                     isSavingProfile = true
 
-                    let weeklyPayload = orderedSelectedBlocks.compactMap { blockName in
+                    let weeklyPayload: [OnboardingWeeklyBlockProfile] = orderedSelectedBlocks.compactMap { blockName -> OnboardingWeeklyBlockProfile? in
                         guard let draft = blockDrafts[blockName] else { return nil }
                         return OnboardingWeeklyBlockProfile(
                             name: blockName,
@@ -485,12 +531,16 @@ struct OnboardingFlowView: View {
 
                     let saved = await appState.saveOnboardingIntake(
                         weeklyBlocks: weeklyPayload,
-                        sleepEnergy: sleepPayload
+                        sleepEnergy: sleepPayload,
+                        blockPreferences: OnboardingBlockPreferences(
+                            hardBlocks: hardBlocksPayload,
+                            softBlocks: softBlocksPayload
+                        )
                     )
                     isSavingProfile = false
 
                     if saved {
-                        step = 5
+                        step = 6
                     }
                 }
             } label: {
@@ -535,7 +585,7 @@ struct OnboardingFlowView: View {
                     hasGeneratedPlan = await appState.generateDay(
                         energy: dayOpenEnergy,
                         mood: dayOpenMood,
-                        stickyBlocks: orderedSelectedBlocks
+                        stickyBlocks: hardBlocksPayload
                     )
                     isGeneratingDay = false
                 }
@@ -599,6 +649,19 @@ struct OnboardingFlowView: View {
 
     private var isLastBlock: Bool {
         currentBlockIndex >= max(0, orderedSelectedBlocks.count - 1)
+    }
+
+    private var hardBlocksPayload: [String] {
+        orderedSelectedBlocks.filter { hardBlocks.contains($0) }
+    }
+
+    private var softBlocksPayload: [String] {
+        orderedSelectedBlocks.filter { hardBlocks.contains($0) == false }
+    }
+
+    private func defaultHardBlock(_ blockName: String) -> Bool {
+        let normalized = blockName.lowercased()
+        return normalized == "classes" || normalized == "job" || normalized == "errands"
     }
 
     private func updateCurrentBlockDraft(_ update: (inout BlockDraft) -> Void) {

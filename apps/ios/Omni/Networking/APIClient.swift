@@ -59,11 +59,15 @@ final class APIClient {
             body: Input(callbackScheme: callbackScheme)
         )
 
-        guard let url = URL(string: output.url) else {
-            throw OmniAPIError.invalidResponse
+        if let url = URL(string: output.url), url.scheme != nil {
+            return url
         }
 
-        return url
+        if let relativeURL = URL(string: output.url, relativeTo: baseURL) {
+            return relativeURL
+        }
+
+        throw OmniAPIError.server("Google OAuth start returned an invalid URL.")
     }
 
     func integrationsStatus(accessToken: String) async throws -> IntegrationsStatusDTO {
@@ -401,7 +405,7 @@ final class APIClient {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw OmniAPIError.invalidResponse
+            throw OmniAPIError.server("Non-HTTP response from server for \(path).")
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
@@ -418,10 +422,17 @@ final class APIClient {
         }
 
         guard data.isEmpty == false else {
-            throw OmniAPIError.invalidResponse
+            throw OmniAPIError.server("Server returned an empty response for \(path).")
         }
 
-        return try JSONDecoder.omni.decode(Response.self, from: data)
+        do {
+            return try JSONDecoder.omni.decode(Response.self, from: data)
+        } catch {
+            let payloadPreview = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "<non-utf8 response>"
+            let shortened = String(payloadPreview.prefix(240))
+            throw OmniAPIError.server("Unexpected payload for \(path): \(shortened)")
+        }
     }
 
     private static func extractServerMessage(from data: Data) -> String {

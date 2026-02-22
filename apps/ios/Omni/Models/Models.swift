@@ -74,29 +74,38 @@ struct OnboardingDayOpenProfile: Codable, Hashable {
     let updatedAt: String
 }
 
+struct OnboardingBlockPreferences: Codable, Hashable {
+    let hardBlocks: [String]
+    let softBlocks: [String]
+}
+
 struct OnboardingEnergyProfile: Codable, Hashable {
     let onboardingVersion: Int?
     let weeklyBlocks: [OnboardingWeeklyBlockProfile]?
     let sleepEnergy: OnboardingSleepEnergyProfile?
     let dayOpen: OnboardingDayOpenProfile?
+    let blockPreferences: OnboardingBlockPreferences?
 
     private enum CodingKeys: String, CodingKey {
         case onboardingVersion
         case weeklyBlocks
         case sleepEnergy
         case dayOpen
+        case blockPreferences
     }
 
     init(
         onboardingVersion: Int?,
         weeklyBlocks: [OnboardingWeeklyBlockProfile]?,
         sleepEnergy: OnboardingSleepEnergyProfile?,
-        dayOpen: OnboardingDayOpenProfile?
+        dayOpen: OnboardingDayOpenProfile?,
+        blockPreferences: OnboardingBlockPreferences?
     ) {
         self.onboardingVersion = onboardingVersion
         self.weeklyBlocks = weeklyBlocks
         self.sleepEnergy = sleepEnergy
         self.dayOpen = dayOpen
+        self.blockPreferences = blockPreferences
     }
 
     init(from decoder: Decoder) throws {
@@ -105,6 +114,7 @@ struct OnboardingEnergyProfile: Codable, Hashable {
         weeklyBlocks = try? container.decodeIfPresent([OnboardingWeeklyBlockProfile].self, forKey: .weeklyBlocks)
         sleepEnergy = try? container.decodeIfPresent(OnboardingSleepEnergyProfile.self, forKey: .sleepEnergy)
         dayOpen = try? container.decodeIfPresent(OnboardingDayOpenProfile.self, forKey: .dayOpen)
+        blockPreferences = try? container.decodeIfPresent(OnboardingBlockPreferences.self, forKey: .blockPreferences)
     }
 }
 

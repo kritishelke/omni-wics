@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct MainTabView: View {
     @EnvironmentObject var appState: AppState
@@ -56,7 +57,11 @@ struct DashboardRootView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var showCheckin = false
+    @State private var showMidBlockPrompt = false
     @State private var driftReason = ""
+    @State private var promptedMidBlockIds: Set<String> = []
+
+    private let midpointTicker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var currentBlock: PlanBlockDTO? {
         appState.planStore.currentBlock()
@@ -66,18 +71,27 @@ struct DashboardRootView: View {
         appState.planStore.nextTaskBlock()
     }
 
-    private var nextEvent: CalendarEventDTO? {
-        appState.googleStore.nextUpcomingEvent(on: appState.todayString)
+    private var nextSocialEvent: CalendarEventDTO? {
+        let socialKeywords = ["social", "hang", "friend", "party", "dinner", "date", "club"]
+        let now = Date()
+
+        return appState.googleStore.events(for: appState.todayString)
+            .filter { event in
+                guard let start = event.startDate, start > now else { return false }
+                let normalized = event.title.lowercased()
+                return socialKeywords.contains { normalized.contains($0) }
+            }
+            .sorted { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
+            .first
+    }
+
+    private var omniScore: Int {
+        appState.rewardsStore.weekly?.omniScore ?? 0
     }
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -109,9 +123,7 @@ struct DashboardRootView: View {
                         upcomingTaskCard(nextTask)
                     }
 
-                    if let nextEvent {
-                        upcomingEventCard(nextEvent)
-                    }
+                    socialAndScoreRow
 
                     if let nudge = appState.signalsStore.latestNudge {
                         nudgeCard(nudge)
@@ -147,81 +159,155 @@ struct DashboardRootView: View {
                 }
             }
         }
+        .alert("Did you finish this task?", isPresented: $showMidBlockPrompt) {
+            Button("Yes") {
+                if let block = currentBlock {
+                    Task { await appState.completeCurrentBlock(block) }
+                }
+            }
+            Button("No") {
+                showCheckin = true
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("Quick checkpoint for your current block.")
+        }
+        .onReceive(midpointTicker) { _ in
+            maybeTriggerMidpointPrompt()
+        }
         .refreshable {
             await appState.refreshIfAuthenticated(fullRefresh: false)
         }
     }
 
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(appState.displayName)
-                .font(.system(size: 40, weight: .bold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.omniAccentDeep, Color.omniAccent],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Image(systemName: "sparkle")
+                        .foregroundStyle(Color.omniGlow)
+                        .font(.title3.bold())
+                }
+                .frame(width: 42, height: 42)
+
+                Text("Omni")
+                    .font(.omniScript(size: 46))
+                    .foregroundStyle(Color.omniGlow)
+                    .shadow(color: Color.omniGlow.opacity(0.75), radius: 12)
+            }
+
+            Text("Your Day, Optimized")
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
-            Text("Your Day, Optimized.")
-                .font(.title3)
-                .foregroundStyle(Color.omniMuted)
+                .shadow(color: Color.omniAccent.opacity(0.85), radius: 12)
+        }
+    }
+
+    private var socialAndScoreRow: some View {
+        HStack(spacing: 12) {
+            if let nextSocialEvent {
+                upcomingEventCard(nextSocialEvent)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 140)
+            }
+            omniScoreCard
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 140)
         }
     }
 
     private func taskInProgressCard(_ block: PlanBlockDTO) -> some View {
-        let progressPercent = progressPercent(for: block)
+        let scheduleProgress = scheduleProgress(for: block)
+        let focusProgress = focusProgress(for: block)
 
-        return HStack(alignment: .center) {
+        return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Task in Progress")
                     .font(.headline)
                     .foregroundStyle(Color.omniMuted)
                 Text(block.label)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(3)
-                Text(block.rationale)
+                Text(block.rationale.isEmpty ? "Current execution block" : block.rationale)
                     .font(.footnote)
                     .foregroundStyle(Color.omniMuted)
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 12)
+            HStack(spacing: 14) {
+                DualProgressRingView(
+                    scheduleProgress: scheduleProgress,
+                    focusProgress: focusProgress
+                )
+                .frame(width: 98, height: 98)
 
-            ProgressRingView(progress: Double(progressPercent) / 100.0)
-                .frame(width: 76, height: 76)
-                .overlay {
-                    Text("\(progressPercent)%")
-                        .font(.headline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Calendar Block: \(Int((scheduleProgress * 100).rounded()))%")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
+                    Text("Focus Session: \(Int((focusProgress * 100).rounded()))%")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.omniAccent)
+
+                    if let session = activeSession(for: block) {
+                        Text("\(session.elapsedMinutes)m tracked in focus session")
+                            .font(.caption)
+                            .foregroundStyle(Color.omniMuted)
+                    } else {
+                        Text("Start focus session to track actual minutes")
+                            .font(.caption)
+                            .foregroundStyle(Color.omniMuted)
+                    }
                 }
+                Spacer(minLength: 0)
+            }
         }
         .padding(18)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .omniGlassCard()
     }
 
     private func actionRow(_ block: PlanBlockDTO) -> some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Button("✅ Done") {
+                Button("Yes, Finished") {
                     Task { await appState.completeCurrentBlock(block) }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccent)
 
-                Button("🟡 Not Done") {
+                Button("No, Not Yet") {
                     showCheckin = true
                 }
                 .buttonStyle(.bordered)
             }
 
             HStack(spacing: 10) {
-                Button("🔥 I'm drifting") {
+                Button("I'm drifting") {
                     Task { await appState.submitDrift(block: block, derailReason: driftReason.isEmpty ? nil : driftReason) }
                 }
                 .buttonStyle(.bordered)
 
-                Button("🔄 Swap") {
+                Button {
                     Task { await appState.requestSwap(block: block) }
+                } label: {
+                    Text("Swap")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccentDeep)
+                .shadow(color: Color.omniAccent.opacity(0.65), radius: 14)
 
-                Button("🧩 Breakdown") {
+                Button("Breakdown") {
                     Task { await appState.requestBreakdown(block: block) }
                 }
                 .buttonStyle(.bordered)
@@ -231,6 +317,8 @@ struct DashboardRootView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.footnote)
         }
+        .padding(14)
+        .omniGlassCard()
     }
 
     private var emptyCurrentBlockCard: some View {
@@ -246,8 +334,7 @@ struct DashboardRootView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .omniGlassCard()
     }
 
     private func upcomingTaskCard(_ block: PlanBlockDTO) -> some View {
@@ -260,19 +347,20 @@ struct DashboardRootView: View {
                 Button("SWAP") {
                     Task { await appState.requestSwap(block: block) }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccentDeep)
+                .shadow(color: Color.omniAccent.opacity(0.70), radius: 14)
             }
 
             Text(block.label)
-                .font(.title2.bold())
+                .font(.system(size: 30, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
             Text("Scheduled for \(block.startDate?.formatted(date: .omitted, time: .shortened) ?? "-")")
                 .foregroundStyle(Color.omniMuted)
                 .font(.subheadline)
         }
         .padding(18)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .omniGlassCard()
     }
 
     private func upcomingEventCard(_ event: CalendarEventDTO) -> some View {
@@ -296,9 +384,28 @@ struct DashboardRootView: View {
                 .foregroundStyle(Color.omniAccent)
                 .clipShape(Capsule())
         }
-        .padding(18)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .padding(14)
+        .omniGlassCard()
+    }
+
+    private var omniScoreCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Omni Score")
+                .font(.headline)
+                .foregroundStyle(Color.omniMuted)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(omniScore)")
+                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("/100")
+                    .foregroundStyle(Color.omniMuted)
+            }
+            Text(omniScore >= 70 ? "Momentum is strong today." : "Room to build momentum.")
+                .font(.caption)
+                .foregroundStyle(Color.omniMuted)
+        }
+        .padding(14)
+        .omniGlassCard()
     }
 
     private func nudgeCard(_ nudge: NudgeDTO) -> some View {
@@ -316,8 +423,7 @@ struct DashboardRootView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .omniGlassCard()
     }
 
     private func breakdownCard(_ breakdown: BreakdownDTO) -> some View {
@@ -333,32 +439,64 @@ struct DashboardRootView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .omniGlassCard()
     }
 
-    private func progressPercent(for block: PlanBlockDTO) -> Int {
-        if let explicit = appState.planStore.progress(for: block) {
-            return Int(explicit.rounded())
+    private func activeSession(for block: PlanBlockDTO) -> FocusSessionState? {
+        guard
+            let blockId = block.id,
+            let session = appState.signalsStore.activeFocusSession,
+            blockId == session.blockId
+        else {
+            return nil
         }
+        return session
+    }
 
-        if let focus = appState.signalsStore.activeFocusSession,
-           block.id == focus.blockId
-        {
-            return Int((focus.progress * 100).rounded())
-        }
-
+    private func scheduleProgress(for block: PlanBlockDTO) -> Double {
         guard
             let start = block.startDate,
             let end = block.endDate,
-            end > start,
-            Date() >= start
+            end > start
         else {
             return 0
         }
+        let now = Date()
+        guard now > start else { return 0 }
+        let ratio = now.timeIntervalSince(start) / end.timeIntervalSince(start)
+        return max(0, min(1, ratio))
+    }
 
-        let ratio = min(1, Date().timeIntervalSince(start) / end.timeIntervalSince(start))
-        return Int((ratio * 100).rounded())
+    private func focusProgress(for block: PlanBlockDTO) -> Double {
+        if let session = activeSession(for: block) {
+            return max(0, min(1, session.progress))
+        }
+        if let explicit = appState.planStore.progress(for: block) {
+            return max(0, min(1, explicit / 100.0))
+        }
+        return 0
+    }
+
+    private func maybeTriggerMidpointPrompt() {
+        guard
+            let block = currentBlock,
+            let blockId = block.id,
+            promptedMidBlockIds.contains(blockId) == false,
+            let start = block.startDate,
+            let end = block.endDate,
+            end > start
+        else {
+            return
+        }
+
+        let midpoint = start.addingTimeInterval(end.timeIntervalSince(start) / 2)
+        let now = Date()
+        guard now >= midpoint, now < end else {
+            return
+        }
+
+        promptedMidBlockIds.insert(blockId)
+        showMidBlockPrompt = true
     }
 }
 
@@ -380,32 +518,52 @@ struct CalendarRootView: View {
         )
     }
 
+    private var weekdayTitle: String {
+        selectedDate.formatted(.dateTime.weekday(.wide))
+    }
+
+    private var fullDateTitle: String {
+        selectedDate.formatted(.dateTime.month(.abbreviated).day().year())
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             VStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Calendar")
-                        .font(.system(size: 44, weight: .bold))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(weekdayTitle)
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text(selectedDate.formatted(date: .complete, time: .omitted))
+                    Text(fullDateTitle)
+                        .font(.title3.weight(.medium))
                         .foregroundStyle(Color.omniMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 20)
 
+                HStack(spacing: 10) {
                     DatePicker("", selection: $selectedDate, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.compact)
                         .tint(Color.omniAccent)
                         .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button("Today") {
+                        selectedDate = Date()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.omniAccentDeep)
                 }
+                .padding(.horizontal, 20)
+
+                HStack(spacing: 10) {
+                    legendPill(title: "Hard blocks", tint: Color.omniHardBlock, alpha: 0.95)
+                    legendPill(title: "Soft blocks", tint: Color.omniSoftBlock, alpha: 0.45)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
 
                 DayTimelineView(items: timelineItems) { tappedItem in
@@ -455,6 +613,16 @@ struct CalendarRootView: View {
             await appState.refreshCalendar(date: selectedDate)
         }
     }
+
+    private func legendPill(title: String, tint: Color, alpha: Double) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(tint.opacity(alpha))
+            .clipShape(Capsule())
+    }
 }
 
 struct FeedbackRootView: View {
@@ -476,17 +644,12 @@ struct FeedbackRootView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Feedback")
-                        .font(.system(size: 44, weight: .bold))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -494,24 +657,20 @@ struct FeedbackRootView: View {
                             .font(.title2.bold())
                             .foregroundStyle(.white)
 
-                        Text("Drift minutes today")
+                        Text("Drift minutes (manual pause reports)")
                             .foregroundStyle(Color.omniMuted)
 
                         HStack(alignment: .bottom) {
                             Text("\(insights.driftMinutesToday) min")
-                                .font(.system(size: 48, weight: .bold))
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color.omniAccent)
 
                             Spacer()
-
-                            HStack(alignment: .bottom, spacing: 6) {
-                                ForEach([8, 12, 10, 16, 11, 9], id: \.self) { value in
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color.omniAccent.opacity(0.35))
-                                        .frame(width: 20, height: CGFloat(value) * 2)
-                                }
-                            }
                         }
+
+                        Text("This metric is based only on check-ins + \"I'm drifting\" taps in-app.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.omniMuted)
 
                         Text("Best focus window: \(insights.bestFocusWindow)")
                             .font(.headline)
@@ -523,8 +682,7 @@ struct FeedbackRootView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
 
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -538,31 +696,29 @@ struct FeedbackRootView: View {
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.black.opacity(0.55))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .omniGlassCard()
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Most common derail")
+                            Text("Derail info")
                                 .foregroundStyle(Color.omniMuted)
-                            Text(insights.mostCommonDerailLabel)
+                            Text("No Screen Time feed")
                                 .font(.title2.bold())
                                 .foregroundStyle(.white)
-                            Text("\(insights.mostCommonDerailAvgMinutes) min avg")
+                            Text("Manual reports only in this build")
                                 .foregroundStyle(Color.omniMuted)
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.black.opacity(0.55))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .omniGlassCard()
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Burnout Guardrail")
+                            Text("Burnout Warning")
                                 .font(.title2.bold())
                                 .foregroundStyle(.white)
                             Spacer()
-                            Text(insights.burnoutRiskLevel.capitalized)
+                            Text(burnoutLabel(insights.burnoutRiskLevel))
                                 .foregroundStyle(Color.omniAccent)
                                 .font(.title3.bold())
                         }
@@ -580,19 +736,22 @@ struct FeedbackRootView: View {
                         }
                         .frame(height: 12)
 
-                        Text(insights.burnoutExplanation)
+                        Text(burnoutMessage(insights.burnoutRiskLevel))
                             .foregroundStyle(Color.omniMuted)
                     }
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("What Omni learned about you")
                             .font(.title2.bold())
                             .foregroundStyle(.white)
 
-                        ForEach(insights.learnedBullets, id: \.self) { bullet in
+                        let learned = [
+                            "You work better after \(insights.bestFocusWindow)."
+                        ] + insights.learnedBullets
+
+                        ForEach(learned, id: \.self) { bullet in
                             HStack(alignment: .top, spacing: 10) {
                                 Circle()
                                     .fill(Color.omniAccent)
@@ -604,8 +763,7 @@ struct FeedbackRootView: View {
                         }
                     }
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
                 }
                 .padding(20)
             }
@@ -626,12 +784,36 @@ struct FeedbackRootView: View {
         default: return 0.35
         }
     }
+
+    private func burnoutLabel(_ level: String) -> String {
+        switch level.lowercased() {
+        case "high":
+            return "Extreme"
+        case "med":
+            return "Manageable"
+        default:
+            return "Light"
+        }
+    }
+
+    private func burnoutMessage(_ level: String) -> String {
+        switch level.lowercased() {
+        case "high":
+            return "Current workload is extreme. Trim scope and protect recovery blocks."
+        case "med":
+            return "Current workload is manageable. Keep your check-in cadence tight."
+        default:
+            return "Current workload is light. You can take on a bit more, carefully."
+        }
+    }
 }
 
 struct RewardRootView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var showClaimMessage = false
+    @State private var showAchievements = false
+    @State private var showConfetti = false
 
     private var rewards: RewardsWeeklyDTO {
         appState.rewardsStore.weekly ?? RewardsWeeklyDTO(
@@ -643,19 +825,32 @@ struct RewardRootView: View {
         )
     }
 
+    private var displayBadges: [RewardBadgeDTO] {
+        if rewards.badges.isEmpty == false {
+            return rewards.badges
+        }
+        return [
+            RewardBadgeDTO(id: "deep-work-streak", title: "Deep Work Streak", unlocked: false),
+            RewardBadgeDTO(id: "drift-zero", title: "No Drift Day", unlocked: false),
+            RewardBadgeDTO(id: "recovery", title: "Recovery Champ", unlocked: false),
+            RewardBadgeDTO(id: "focus-finisher", title: "Focus Finisher", unlocked: false),
+            RewardBadgeDTO(id: "planner-pro", title: "Planner Pro", unlocked: false),
+            RewardBadgeDTO(id: "consistency-7", title: "Consistency 7/7", unlocked: false)
+        ]
+    }
+
+    private var isRewardReady: Bool {
+        rewards.daysCompletedThisWeek >= 5
+    }
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Reward")
-                        .font(.system(size: 44, weight: .bold))
+                    Text("Rewards")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
                     VStack(spacing: 12) {
@@ -680,8 +875,7 @@ struct RewardRootView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
 
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -708,16 +902,22 @@ struct RewardRootView: View {
                         }
                     }
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Badges")
-                            .font(.title2.bold())
-                            .foregroundStyle(.white)
+                        HStack {
+                            Text("Badges")
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Button("All Achievements") {
+                                showAchievements = true
+                            }
+                            .buttonStyle(.bordered)
+                        }
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            ForEach(rewards.badges) { badge in
+                            ForEach(displayBadges) { badge in
                                 VStack(spacing: 8) {
                                     Circle()
                                         .fill(badge.unlocked ? Color.omniAccent : Color.white.opacity(0.08))
@@ -735,20 +935,48 @@ struct RewardRootView: View {
                         }
                     }
                     .padding(18)
-                    .background(Color.black.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .omniGlassCard()
 
-                    Button("Claim Weekly Reward") {
+                    Button {
                         Task {
                             await appState.claimWeeklyReward()
                             showClaimMessage = true
+                            showConfetti = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                                showConfetti = false
+                            }
                         }
+                    } label: {
+                        Text("Claim Weekly Reward")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.omniAccent)
-                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(.white)
+                    .background(
+                        LinearGradient(
+                            colors: isRewardReady
+                                ? [Color.black, Color.omniAccentDeep, Color.omniAccent]
+                                : [Color.black, Color.black.opacity(0.85)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.omniAccent.opacity(isRewardReady ? 0.55 : 0.18), lineWidth: 1)
+                    )
+                    .shadow(color: Color.omniAccent.opacity(isRewardReady ? 0.62 : 0.2), radius: 16)
+                    .disabled(isRewardReady == false)
                 }
                 .padding(20)
+            }
+
+            if showConfetti {
+                ConfettiOverlayView()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -756,6 +984,29 @@ struct RewardRootView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(appState.rewardsStore.claimMessage ?? "Weekly reward claimed")
+        }
+        .sheet(isPresented: $showAchievements) {
+            NavigationStack {
+                List {
+                    Section("Total Achievements") {
+                        Text("Unlocked: \(displayBadges.filter(\.unlocked).count)")
+                        Text("Locked: \(displayBadges.filter { !$0.unlocked }.count)")
+                    }
+
+                    Section("All Badges") {
+                        ForEach(displayBadges) { badge in
+                            HStack {
+                                Text(badge.title)
+                                Spacer()
+                                Image(systemName: badge.unlocked ? "checkmark.seal.fill" : "lock.fill")
+                                    .foregroundStyle(badge.unlocked ? Color.omniAccent : Color.omniMuted)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Achievements")
+                .navigationBarTitleDisplayMode(.inline)
+            }
         }
         .task {
             await appState.refreshIfAuthenticated(fullRefresh: false)
@@ -782,17 +1033,12 @@ struct SettingsRootView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.omniBackground, Color.omniCard],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            OmniNebulaBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Settings")
-                        .font(.system(size: 44, weight: .bold))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
 
                     profileCard
@@ -834,28 +1080,34 @@ struct SettingsRootView: View {
     }
 
     private var profileCard: some View {
-        HStack(spacing: 14) {
-            Circle()
-                .fill(Color.omniAccent)
-                .frame(width: 58, height: 58)
-                .overlay {
-                    Text("OU")
-                        .font(.headline)
-                        .foregroundStyle(.black)
-                }
+        VStack(spacing: 12) {
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(Color.omniAccent)
+                    .frame(width: 58, height: 58)
+                    .overlay {
+                        Text("OU")
+                            .font(.headline)
+                            .foregroundStyle(.black)
+                    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(appState.displayName)
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-                Text("Student Focus Profile")
-                    .foregroundStyle(Color.omniMuted)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appState.displayName)
+                        .font(.title3.bold())
+                        .foregroundStyle(.white)
+                    Text("User profile")
+                        .foregroundStyle(Color.omniMuted)
+                }
+                Spacer()
             }
-            Spacer()
+            Button("Edit onboarding profile") {
+                appState.sessionStore.resetOnboarding()
+            }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .omniGlassCard()
     }
 
     private var integrationsCard: some View {
@@ -891,8 +1143,7 @@ struct SettingsRootView: View {
                 .foregroundStyle(Color.omniMuted)
         }
         .padding(16)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .omniGlassCard()
     }
 
     private var sleepRecoveryCard: some View {
@@ -914,8 +1165,7 @@ struct SettingsRootView: View {
                 }
         }
         .padding(16)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .omniGlassCard()
     }
 
     private var privacyCard: some View {
@@ -937,8 +1187,7 @@ struct SettingsRootView: View {
             .buttonStyle(.bordered)
         }
         .padding(16)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .omniGlassCard()
     }
 
     private var notificationsCard: some View {
@@ -986,8 +1235,7 @@ struct SettingsRootView: View {
             .foregroundStyle(.red)
         }
         .padding(16)
-        .background(Color.black.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .omniGlassCard()
     }
 
     private func integrationRow(title: String, connected: Bool) -> some View {
@@ -1038,9 +1286,21 @@ private struct DayTimelineView: View {
     let items: [CalendarTimelineItem]
     let onTapItem: (CalendarTimelineItem) -> Void
 
-    private let startHour = 8
-    private let endHour = 21
     private let rowHeight: CGFloat = 86
+
+    private var startHour: Int {
+        guard let minHour = items.map({ Calendar.current.component(.hour, from: $0.start) }).min() else {
+            return 8
+        }
+        return max(5, minHour - 1)
+    }
+
+    private var endHour: Int {
+        guard let maxHour = items.map({ Calendar.current.component(.hour, from: $0.end) }).max() else {
+            return 21
+        }
+        return min(23, maxHour + 1)
+    }
 
     var body: some View {
         ScrollView {
@@ -1073,7 +1333,7 @@ private struct DayTimelineView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.title)
                                         .font(.headline)
-                                        .foregroundStyle(item.source == .plan ? Color.omniAccent : .white)
+                                        .foregroundStyle(isHardBlock(item) ? .white : Color.omniGlow)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     if let subtitle = item.subtitle, subtitle.isEmpty == false {
                                         Text(subtitle)
@@ -1084,10 +1344,13 @@ private struct DayTimelineView: View {
                                 }
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.source == .plan ? Color.omniAccent.opacity(0.12) : Color.black.opacity(0.65))
+                                .background(itemBackground(item))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 14)
-                                        .stroke(item.source == .plan ? Color.omniAccent : Color.purple.opacity(0.8), lineWidth: 1)
+                                        .stroke(
+                                            isHardBlock(item) ? Color.omniHardBlock.opacity(0.95) : Color.omniSoftBlock.opacity(0.72),
+                                            lineWidth: 1
+                                        )
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                             }
@@ -1125,6 +1388,21 @@ private struct DayTimelineView: View {
     private func itemHeight(for item: CalendarTimelineItem) -> CGFloat {
         let durationMinutes = max(30, Int(item.end.timeIntervalSince(item.start) / 60))
         return CGFloat(durationMinutes) * (rowHeight / 60)
+    }
+
+    private func isHardBlock(_ item: CalendarTimelineItem) -> Bool {
+        if let event = item.event {
+            return event.isHardConstraint
+        }
+        if let block = item.planBlock {
+            return block.type == "sticky"
+        }
+        return false
+    }
+
+    private func itemBackground(_ item: CalendarTimelineItem) -> some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(isHardBlock(item) ? Color.omniHardBlock.opacity(0.95) : Color.omniSoftBlock.opacity(0.45))
     }
 }
 
@@ -1264,8 +1542,76 @@ private struct ProgressRingView: View {
                 .stroke(Color.white.opacity(0.18), lineWidth: 8)
             Circle()
                 .trim(from: 0, to: max(0.02, min(1, progress)))
-                .stroke(Color.omniAccent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [Color.omniAccentDeep, Color.omniAccent, Color.omniGlow]),
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                )
                 .rotationEffect(.degrees(-90))
+        }
+    }
+}
+
+private struct DualProgressRingView: View {
+    let scheduleProgress: Double
+    let focusProgress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.14), lineWidth: 11)
+
+            Circle()
+                .trim(from: 0, to: max(0.02, min(1, scheduleProgress)))
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [Color.omniHardBlock, Color.omniAccent]),
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 11, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            Circle()
+                .stroke(Color.white.opacity(0.08), lineWidth: 6)
+                .frame(width: 62, height: 62)
+
+            Circle()
+                .trim(from: 0, to: max(0.02, min(1, focusProgress)))
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(colors: [Color.omniGlow, Color.omniAccent]),
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: 62, height: 62)
+
+            Text("\(Int((scheduleProgress * 100).rounded()))%")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+private struct ConfettiOverlayView: View {
+    private let colors: [Color] = [Color.omniAccent, Color.omniGlow, Color.omniAccentDeep, .white]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ForEach(0..<36, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(colors[index % colors.count])
+                    .frame(width: 6, height: 12)
+                    .position(
+                        x: CGFloat.random(in: 16...(proxy.size.width - 16)),
+                        y: CGFloat.random(in: 0...(proxy.size.height * 0.35))
+                    )
+                    .opacity(0.85)
+            }
         }
     }
 }
