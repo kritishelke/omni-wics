@@ -4,31 +4,58 @@ import UIKit
 
 final class WebAuthSessionRunner: NSObject, ASWebAuthenticationPresentationContextProviding {
     private var continuation: CheckedContinuation<URL, Error>?
+    private var activeSession: ASWebAuthenticationSession?
 
     @MainActor
     func run(url: URL, callbackScheme: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            let session = ASWebAuthenticationSession(
-                url: url,
-                callbackURLScheme: callbackScheme
-            ) { callbackURL, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+
+                let session = ASWebAuthenticationSession(
+                    url: url,
+                    callbackURLScheme: callbackScheme
+                ) { [weak self] callbackURL, error in
+                    guard let self else { return }
+                    self.activeSession = nil
+
+                    guard let continuation = self.continuation else { return }
+                    self.continuation = nil
+
+                    if let error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+
+                    guard let callbackURL else {
+                        continuation.resume(throwing: OmniAPIError.invalidResponse)
+                        return
+                    }
+
+                    continuation.resume(returning: callbackURL)
                 }
 
-                guard let callbackURL else {
-                    continuation.resume(throwing: OmniAPIError.invalidResponse)
+                session.presentationContextProvider = self
+                session.prefersEphemeralWebBrowserSession = true
+                self.activeSession = session
+
+                guard session.start() else {
+                    self.activeSession = nil
+                    self.continuation = nil
+                    continuation.resume(
+                        throwing: OmniAPIError.server("Unable to start Google OAuth session.")
+                    )
                     return
                 }
-
-                continuation.resume(returning: callbackURL)
             }
-
-            session.presentationContextProvider = self
-            session.prefersEphemeralWebBrowserSession = true
-            _ = session.start()
+        } onCancel: { [weak self] in
+            Task { @MainActor in
+                guard let self, let continuation = self.continuation else { return }
+                self.activeSession?.cancel()
+                self.activeSession = nil
+                self.continuation = nil
+                continuation.resume(throwing: CancellationError())
+            }
         }
     }
 

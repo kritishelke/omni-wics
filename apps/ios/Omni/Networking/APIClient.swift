@@ -186,11 +186,21 @@ final class APIClient {
     }
 
     func todayPlan(accessToken: String) async throws -> PlanDTO? {
-        try await request(path: "/v1/plans/today", method: "GET", accessToken: accessToken, body: Optional<String>.none)
+        try await requestOptional(
+            path: "/v1/plans/today",
+            method: "GET",
+            accessToken: accessToken,
+            body: Optional<String>.none
+        )
     }
 
     func plan(accessToken: String, date: String) async throws -> PlanDTO? {
-        try await request(path: "/v1/plans/\(date)", method: "GET", accessToken: accessToken, body: Optional<String>.none)
+        try await requestOptional(
+            path: "/v1/plans/\(date)",
+            method: "GET",
+            accessToken: accessToken,
+            body: Optional<String>.none
+        )
     }
 
     func sendCheckin(
@@ -461,6 +471,65 @@ final class APIClient {
         }
 
         return String(data: data, encoding: .utf8) ?? "Request failed"
+    }
+
+    private func requestOptional<Response: Decodable, Body: Encodable>(
+        path: String,
+        method: String,
+        accessToken: String?,
+        body: Body?
+    ) async throws -> Response? {
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw OmniAPIError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let body {
+            request.httpBody = try JSONEncoder().encode(body)
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OmniAPIError.server("Non-HTTP response from server for \(path).")
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            if httpResponse.statusCode == 401 {
+                throw OmniAPIError.unauthorized
+            }
+
+            let message = Self.extractServerMessage(from: data)
+            throw OmniAPIError.server(message)
+        }
+
+        guard data.isEmpty == false else {
+            return nil
+        }
+
+        if
+            let payload = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            payload == "null"
+        {
+            return nil
+        }
+
+        do {
+            return try JSONDecoder.omni.decode(Response.self, from: data)
+        } catch {
+            let payloadPreview = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "<non-utf8 response>"
+            let shortened = String(payloadPreview.prefix(240))
+            throw OmniAPIError.server("Unexpected payload for \(path): \(shortened)")
+        }
     }
 }
 

@@ -80,12 +80,12 @@ struct AuthView: View {
 
         isSubmitting = true
         Task {
+            defer { isSubmitting = false }
             if signup {
                 await appState.signUpWithEmail(email: cleanEmail, password: cleanPassword)
             } else {
                 await appState.signInWithEmail(email: cleanEmail, password: cleanPassword)
             }
-            isSubmitting = false
         }
     }
 }
@@ -252,8 +252,8 @@ struct OnboardingFlowView: View {
                     Task {
                         guard isConnectingGoogle == false else { return }
                         isConnectingGoogle = true
+                        defer { isConnectingGoogle = false }
                         _ = await appState.connectGoogle()
-                        isConnectingGoogle = false
                     }
                 } label: {
                     HStack(spacing: 8) {
@@ -508,6 +508,7 @@ struct OnboardingFlowView: View {
                 Task {
                     guard isSavingProfile == false else { return }
                     isSavingProfile = true
+                    defer { isSavingProfile = false }
 
                     let weeklyPayload: [OnboardingWeeklyBlockProfile] = orderedSelectedBlocks.compactMap { blockName -> OnboardingWeeklyBlockProfile? in
                         guard let draft = blockDrafts[blockName] else { return nil }
@@ -537,7 +538,6 @@ struct OnboardingFlowView: View {
                             softBlocks: softBlocksPayload
                         )
                     )
-                    isSavingProfile = false
 
                     if saved {
                         step = 6
@@ -582,12 +582,12 @@ struct OnboardingFlowView: View {
                 Task {
                     guard isGeneratingDay == false else { return }
                     isGeneratingDay = true
+                    defer { isGeneratingDay = false }
                     hasGeneratedPlan = await appState.generateDay(
                         energy: dayOpenEnergy,
                         mood: dayOpenMood,
                         stickyBlocks: hardBlocksPayload
                     )
-                    isGeneratingDay = false
                 }
             } label: {
                 HStack(spacing: 8) {
