@@ -522,10 +522,6 @@ struct CalendarRootView: View {
         selectedDate.formatted(.dateTime.weekday(.wide))
     }
 
-    private var fullDateTitle: String {
-        selectedDate.formatted(.dateTime.month(.abbreviated).day().year())
-    }
-
     var body: some View {
         ZStack {
             OmniNebulaBackground()
@@ -535,11 +531,6 @@ struct CalendarRootView: View {
                     Text(weekdayTitle)
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Text(fullDateTitle)
-                        .font(.title3.weight(.medium))
-                        .foregroundStyle(Color.omniMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 20)
@@ -574,7 +565,7 @@ struct CalendarRootView: View {
                 Button {
                     showAddTask = true
                 } label: {
-                    Label("+ Add Task", systemImage: "plus")
+                    Label("Add Task", systemImage: "plus")
                         .font(.title3.bold())
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
