@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const isoDateTimeSchema = z.string().datetime({ offset: true });
+
 export const coachModeSchema = z.enum(["gentle", "balanced", "strict"]);
 export type CoachMode = z.infer<typeof coachModeSchema>;
 
@@ -31,8 +33,8 @@ export type UserProfile = z.infer<typeof userProfileSchema>;
 
 export const calendarEventSchema = z.object({
   sourceId: z.string(),
-  startAt: z.string().datetime(),
-  endAt: z.string().datetime(),
+  startAt: isoDateTimeSchema,
+  endAt: isoDateTimeSchema,
   title: z.string(),
   location: z.string().nullable().optional(),
   isHardConstraint: z.literal(true)
@@ -44,10 +46,10 @@ export const taskSchema = z.object({
   taskListId: z.string(),
   title: z.string(),
   notes: z.string().nullable().optional(),
-  dueAt: z.string().datetime().nullable().optional(),
+  dueAt: isoDateTimeSchema.nullable().optional(),
   status: z.enum(["needsAction", "completed"]),
   parentTaskId: z.string().nullable().optional(),
-  updatedAt: z.string().datetime(),
+  updatedAt: isoDateTimeSchema,
   source: z.literal("google")
 });
 export type TaskDTO = z.infer<typeof taskSchema>;
@@ -56,8 +58,8 @@ export const planBlockSchema = z.object({
   id: z.string().uuid().optional(),
   planId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
-  startAt: z.string().datetime(),
-  endAt: z.string().datetime(),
+  startAt: isoDateTimeSchema,
+  endAt: isoDateTimeSchema,
   type: planBlockTypeSchema,
   googleTaskId: z.string().nullable().optional(),
   label: z.string(),
@@ -80,7 +82,7 @@ export type PlanDTO = z.infer<typeof planSchema>;
 export const nudgeSchema = z.object({
   id: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
-  ts: z.string().datetime().optional(),
+  ts: isoDateTimeSchema.optional(),
   triggerType: triggerTypeSchema,
   recommendedAction: recommendedActionSchema,
   alternatives: z.array(z.string()).default([]),
@@ -94,7 +96,7 @@ export const signalSchema = z.object({
   id: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
   type: signalTypeSchema,
-  ts: z.string().datetime().optional(),
+  ts: isoDateTimeSchema.optional(),
   relatedBlockId: z.string().uuid().nullable().optional(),
   payload: z.record(z.any()).default({})
 });
@@ -138,7 +140,7 @@ export const aiNudgeResponseSchema = z.object({
 export const aiBreakdownRequestSchema = z.object({
   googleTaskId: z.string().optional(),
   title: z.string(),
-  dueAt: z.string().datetime().optional()
+  dueAt: isoDateTimeSchema.optional()
 });
 
 export const aiBreakdownResponseSchema = z.object({
@@ -190,7 +192,7 @@ export const createTaskRequestSchema = z.object({
   taskListId: z.string().optional(),
   title: z.string().min(1),
   notes: z.string().optional(),
-  dueAt: z.string().datetime().optional()
+  dueAt: isoDateTimeSchema.optional()
 });
 
 export const completeTaskResponseSchema = z.object({

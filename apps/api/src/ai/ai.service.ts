@@ -91,8 +91,12 @@ export class AiService {
       "Keep alternatives concise."
     ].join("\n");
 
+    const fallbackRecommendedAction: z.infer<
+      typeof aiNudgeResponseSchema
+    >["recommendedAction"] = input.triggerType === "drift" ? "break" : "continue";
+
     const generated = await this.generateJson(aiNudgeResponseSchema, prompt, () => ({
-      recommendedAction: input.triggerType === "drift" ? "break" : "continue",
+      recommendedAction: fallbackRecommendedAction,
       alternatives:
         input.triggerType === "drift"
           ? ["Take a 5-minute reset", "Shrink scope to one subtask", "Swap to easier block"]

@@ -10,6 +10,18 @@
 		A10000010000000000000001 /* OmniApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* OmniApp.swift */; };
 		A10000020000000000000001 /* OmniDeviceActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* OmniDeviceActivityMonitor.swift */; };
 		A10000030000000000000001 /* OmniDeviceActivityMonitor.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000220000000000000001 /* OmniDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A10000040000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* Assets.xcassets */; };
+		A10000050000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000190000000000000001 /* Models.swift */; };
+		A10000060000000000000001 /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001A0000000000000001 /* AppSecrets.swift */; };
+		A10000070000000000000001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001B0000000000000001 /* APIClient.swift */; };
+		A10000080000000000000001 /* AuthServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001C0000000000000001 /* AuthServices.swift */; };
+		A10000090000000000000001 /* SystemServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001D0000000000000001 /* SystemServices.swift */; };
+		A100000A0000000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001E0000000000000001 /* AppState.swift */; };
+		A100000B0000000000000001 /* AuthAndOnboardingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001F0000000000000001 /* AuthAndOnboardingViews.swift */; };
+		A100000C0000000000000001 /* MainTabViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000200000000000000001 /* MainTabViews.swift */; };
+		A100000D0000000000000001 /* SupportExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000230000000000000001 /* SupportExtensions.swift */; };
+		A100000E0000000000000001 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000240000000000000001 /* AppRootView.swift */; };
+		FCE09B902F4AA63D00F8987A /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = FCE09B8F2F4A9C6C00F8987A /* Secrets.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,8 +56,20 @@
 		A10000150000000000000001 /* Omni.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Omni.entitlements; sourceTree = "<group>"; };
 		A10000160000000000000001 /* OmniDeviceActivityMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OmniDeviceActivityMonitor.entitlements; sourceTree = "<group>"; };
 		A10000170000000000000001 /* Secrets.example.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.example.plist; sourceTree = "<group>"; };
+		A10000180000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000190000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A100001A0000000000000001 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
+		A100001B0000000000000001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A100001C0000000000000001 /* AuthServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServices.swift; sourceTree = "<group>"; };
+		A100001D0000000000000001 /* SystemServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemServices.swift; sourceTree = "<group>"; };
+		A100001E0000000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A100001F0000000000000001 /* AuthAndOnboardingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthAndOnboardingViews.swift; sourceTree = "<group>"; };
+		A10000200000000000000001 /* MainTabViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabViews.swift; sourceTree = "<group>"; };
 		A10000210000000000000001 /* Omni.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Omni.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000220000000000000001 /* OmniDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OmniDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000230000000000000001 /* SupportExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportExtensions.swift; sourceTree = "<group>"; };
+		A10000240000000000000001 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		FCE09B8F2F4A9C6C00F8987A /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,7 +103,14 @@
 			isa = PBXGroup;
 			children = (
 				A10006040000000000000001 /* App */,
+				A10006060000000000000001 /* Models */,
+				A10006070000000000000001 /* Networking */,
+				A10006080000000000000001 /* Services */,
+				A10006090000000000000001 /* State */,
+				A10006100000000000000001 /* Views */,
+				A10006110000000000000001 /* Support */,
 				A10006050000000000000001 /* Config */,
+				A10000180000000000000001 /* Assets.xcassets */,
 				A10000130000000000000001 /* Info.plist */,
 				A10000150000000000000001 /* Omni.entitlements */,
 			);
@@ -109,6 +140,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000110000000000000001 /* OmniApp.swift */,
+				A10000240000000000000001 /* AppRootView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -116,9 +148,61 @@
 		A10006050000000000000001 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				A100001A0000000000000001 /* AppSecrets.swift */,
 				A10000170000000000000001 /* Secrets.example.plist */,
+				FCE09B8F2F4A9C6C00F8987A /* Secrets.plist */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		A10006060000000000000001 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10000190000000000000001 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10006070000000000000001 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				A100001B0000000000000001 /* APIClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		A10006080000000000000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A100001C0000000000000001 /* AuthServices.swift */,
+				A100001D0000000000000001 /* SystemServices.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A10006090000000000000001 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				A100001E0000000000000001 /* AppState.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		A10006100000000000000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A100001F0000000000000001 /* AuthAndOnboardingViews.swift */,
+				A10000200000000000000001 /* MainTabViews.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A10006110000000000000001 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				A10000230000000000000001 /* SupportExtensions.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -202,6 +286,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FCE09B902F4AA63D00F8987A /* Secrets.plist in Resources */,
+				A10000040000000000000001 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,7 +305,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A100000E0000000000000001 /* AppRootView.swift in Sources */,
+				A100000A0000000000000001 /* AppState.swift in Sources */,
+				A100000B0000000000000001 /* AuthAndOnboardingViews.swift in Sources */,
+				A10000080000000000000001 /* AuthServices.swift in Sources */,
+				A10000060000000000000001 /* AppSecrets.swift in Sources */,
+				A100000C0000000000000001 /* MainTabViews.swift in Sources */,
+				A10000050000000000000001 /* Models.swift in Sources */,
 				A10000010000000000000001 /* OmniApp.swift in Sources */,
+				A10000070000000000000001 /* APIClient.swift in Sources */,
+				A100000D0000000000000001 /* SupportExtensions.swift in Sources */,
+				A10000090000000000000001 /* SystemServices.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,7 +427,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OmniDeviceActivityMonitor/OmniDeviceActivityMonitor.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OmniDeviceActivityMonitor/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -341,7 +437,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.omni.monitor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wics.omni.monitor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
@@ -355,7 +451,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = OmniDeviceActivityMonitor/OmniDeviceActivityMonitor.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OmniDeviceActivityMonitor/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
@@ -365,7 +461,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.omni.monitor;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wics.omni.monitor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;

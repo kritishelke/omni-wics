@@ -12,7 +12,7 @@ struct ExtensionDriftEvent: Codable {
 
 final class ExtensionDriftStore {
     static let key = "omni.drift.events"
-    static let appGroupId = "group.com.example.omni" // Replace with real app group in both targets.
+    static let appGroupId = "group.com.wics.omni" // Replace with real app group in both targets.
 
     static func append(_ event: ExtensionDriftEvent) {
         let defaults = UserDefaults(suiteName: appGroupId) ?? .standard
