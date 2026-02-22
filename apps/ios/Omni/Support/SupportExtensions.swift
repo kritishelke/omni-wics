@@ -1,6 +1,6 @@
 import Foundation
 import AuthenticationServices
-import DeviceActivity
+import SwiftUI
 
 extension JSONDecoder {
     static var omni: JSONDecoder {
@@ -26,6 +26,14 @@ enum OmniDateParser {
     static func parse(_ value: String) -> Date? {
         fractionalISO8601.date(from: value) ?? internetDateTimeISO8601.date(from: value)
     }
+
+    static func dayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
 }
 
 extension Error {
@@ -50,6 +58,9 @@ extension Error {
     }
 }
 
-extension DeviceActivityEvent.Name {
-    static let driftThreshold = Self("driftThreshold")
+extension Color {
+    static let omniBackground = Color(red: 0.02, green: 0.05, blue: 0.08)
+    static let omniCard = Color(red: 0.03, green: 0.08, blue: 0.10)
+    static let omniAccent = Color(red: 0.11, green: 0.83, blue: 0.74)
+    static let omniMuted = Color(red: 0.65, green: 0.71, blue: 0.74)
 }

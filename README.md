@@ -1,11 +1,11 @@
 # Omni MVP Monorepo
 
 Omni MVP with:
-- iOS SwiftUI app (`apps/ios`) with onboarding + tabs: `Now`, `Today`, `Tasks`, `Insights`, `Settings`
+- iOS SwiftUI app (`apps/ios`) with onboarding + tabs: `Dashboard`, `Calendar`, `Feedback`, `Reward`, `Settings`
 - NestJS API (`apps/api`) with Supabase auth verification, Google Calendar/Tasks integration, Gemini plan/nudge/breakdown/day-close endpoints
 - Shared API contracts (`packages/shared`) with Zod schemas
 - Supabase SQL migrations + RLS (`supabase/migrations`)
-- Screen Time scaffolding (FamilyControls + DeviceActivity + manual drift fallback)
+- Manual drift + AI check-in flow (no Screen Time entitlement required)
 
 ## Repo Layout
 
@@ -26,27 +26,28 @@ Omni MVP with:
 ## 1) Supabase Setup
 
 1. Create a Supabase project.
-2. Copy:
+2. Copy `apps/api/.env.example` to `apps/api/.env` and set:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
-3. Copy `apps/api/.env.example` to `apps/api/.env` and fill values.
-4. Run SQL migrations from `supabase/migrations/001_init.sql`.
-   - CLI: `supabase db push` (or run SQL in dashboard editor).
-5. In Supabase Auth providers, enable Apple.
-6. Add local redirect URLs if needed (including app callback `omni://...`).
+3. Run SQL migrations in order:
+   - `supabase/migrations/001_init.sql`
+   - `supabase/migrations/002_profile_toggles_and_focus_signal.sql`
+4. In Supabase Auth providers, ensure **Email** auth is enabled.
 
 ## 2) Google OAuth Setup
 
-1. In Google Cloud:
-   - Enable **Google Calendar API**
-   - Enable **Google Tasks API**
-2. Create OAuth Client Credentials.
+1. In Google Cloud, enable:
+   - Google Calendar API
+   - Google Tasks API
+2. Create OAuth client credentials with **Web application** type.
 3. Add redirect URI:
-   - `http://localhost:3001/v1/google/oauth/callback`
-4. Put values in `apps/api/.env`:
+   - local: `http://localhost:3001/v1/google/oauth/callback`
+   - if using ngrok: `https://<your-ngrok-domain>/v1/google/oauth/callback`
+4. Set in `apps/api/.env`:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REDIRECT_URL`
 
 ## 3) Gemini Setup
 
@@ -62,9 +63,14 @@ pnpm i
 pnpm --filter api dev
 ```
 
-Health check:
+Health check (local):
 ```bash
 curl http://localhost:3001/v1/health
+```
+
+Health check (ngrok):
+```bash
+curl -H "ngrok-skip-browser-warning: true" https://<your-ngrok-domain>/v1/health
 ```
 
 API docs/examples:
@@ -73,32 +79,27 @@ API docs/examples:
 
 ## 5) iOS Run
 
-1. Open `apps/ios/Omni.xcodeproj` in Xcode.
-2. Copy `apps/ios/Omni/Config/Secrets.example.plist` -> `apps/ios/Omni/Config/Secrets.plist` and fill:
+1. Open `apps/ios/Omni.xcodeproj`.
+2. Copy `apps/ios/Omni/Config/Secrets.example.plist` to `apps/ios/Omni/Config/Secrets.plist` and set:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-   - `API_BASE_URL`
-   - `IOS_OAUTH_CALLBACK_SCHEME` (default `omni`)
-   - `APP_GROUP_ID`
-3. Set bundle IDs, signing team, and App Group in both targets:
-   - `Omni`
-   - `OmniDeviceActivityMonitor`
-4. Run on physical device for Screen Time flows.
-   - Simulator fallback: manual drift button in `Now`/`BlockDetail`.
+   - `API_BASE_URL` (localhost or ngrok HTTPS URL)
+   - `IOS_OAUTH_CALLBACK_SCHEME` (`omni` by default)
+3. Ensure bundle id + signing team are set for the `Omni` target.
+4. Ensure `URL Types` contains the `omni` scheme for OAuth callback.
+5. Run `Omni` scheme on your iPhone.
 
-## 6) Verify End-to-End
+## 6) Manual End-to-End Script
 
-1. Sign in with Apple.
+1. Sign in with email/password.
 2. Connect Google.
-3. Fetch Google tasks.
-4. Generate day plan.
-5. Use `Now` actions:
-   - done
-   - check-in
-   - drift
-   - swap
-   - breakdown
-6. Run day close and verify summary response.
+3. Generate a plan.
+4. Dashboard shows current task + upcoming task + upcoming event.
+5. Start focus session, submit check-in, press drift.
+6. Calendar shows Google events + Omni blocks + add task.
+7. Feedback shows drift + focus window + derail + burnout summary.
+8. Reward shows score + weekly consistency + badges.
+9. Settings shows integrations + toggles + sign out.
 
 ## Happy Path Integration Checklist
 
@@ -109,14 +110,16 @@ API docs/examples:
 - [ ] `GET /v1/google/tasks` returns normalized tasks
 - [ ] `POST /v1/google/tasks/:taskId/complete` completes + updates cache
 - [ ] `POST /v1/ai/plan` writes idempotent `plans` + `plan_blocks`
-- [ ] `POST /v1/signals/drift` creates signal and nudge path works
-- [ ] `POST /v1/ai/day-close` writes `daily_logs`
+- [ ] `POST /v1/signals/checkin` stores progress/focus/driftMinutes
+- [ ] `POST /v1/signals/drift` logs drift and can return nudge
+- [ ] `GET /v1/insights/today` returns feedback metrics
+- [ ] `GET /v1/rewards/weekly` returns score/streak/badges
 
 ## Tests
 
 Run backend tests:
 ```bash
-pnpm --filter api test
+pnpm --filter api test -- --watchman=false
 ```
 
 Included minimal Jest tests:
@@ -125,19 +128,10 @@ Included minimal Jest tests:
 - token encryption/decryption round-trip
 - plan + blocks idempotent write behavior per user/date
 
-## Screen Time Notes
-
-- Feature is scaffolded behind runtime enablement.
-- If authorization denied/unavailable, app continues with manual drift workflow.
-- Update placeholder App Group (`group.com.example.omni`) in:
-  - `apps/ios/Omni/Config/Secrets.plist`
-  - `apps/ios/Omni/Omni.entitlements`
-  - `apps/ios/OmniDeviceActivityMonitor/OmniDeviceActivityMonitor.entitlements`
-  - `apps/ios/OmniDeviceActivityMonitor/OmniDeviceActivityMonitor.swift`
-
 ## Troubleshooting
 
-- `401 Invalid Supabase token`: verify iOS session token is being sent in `Authorization: Bearer ...`.
-- Google callback fails: confirm redirect URI exact match in Google Cloud and API `.env`.
+- `401 Invalid Supabase token`: verify iOS session token is sent in `Authorization: Bearer ...`.
+- Google callback fails: confirm redirect URI exact match in Google Cloud and `.env`.
 - `TOKEN_ENCRYPTION_KEY` errors: provide exactly 32-byte raw/base64 or 64-char hex.
-- Screen Time APIs fail: test on real device with required entitlement enabled.
+- ngrok 404/offline: start backend first, then run `ngrok http 3001`.
+- If notifications do not route tabs, verify app notification permission is granted.

@@ -20,6 +20,12 @@ export class SignalsController {
     return this.signalsService.submitDrift(user.id, parsed);
   }
 
+  @Post("signals/focus-session-start")
+  async focusSessionStart(@CurrentUser() user: { id: string }, @Body() body: unknown) {
+    const parsed = this.signalsService.parseFocusSessionStartBody(body);
+    return this.signalsService.submitFocusSessionStart(user.id, parsed);
+  }
+
   @Post("nudges/:id/accept")
   async acceptNudge(
     @CurrentUser() user: { id: string },

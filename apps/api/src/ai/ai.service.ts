@@ -51,6 +51,7 @@ export class AiService {
     }
 
     const profile = await this.profileService.getProfile(userId);
+    const energyProfilePlanContext = this.describePlanEnergyProfile(profile.energyProfile);
 
     const prompt = [
       "You are Omni, an execution coach.",
@@ -60,6 +61,7 @@ export class AiService {
       `Energy: ${input.energy}`,
       `Coach mode: ${input.coachMode ?? profile.coachMode}`,
       `Sticky blocks preference: ${JSON.stringify(input.stickyBlocks ?? [])}`,
+      `Onboarding profile context: ${energyProfilePlanContext}`,
       `Calendar events: ${JSON.stringify(events)}`,
       `Tasks: ${JSON.stringify(tasks)}`,
       "Prioritize realism, include breaks, and avoid overlapping blocks."
@@ -77,6 +79,11 @@ export class AiService {
   async generateNudge(userId: string, payload: z.infer<typeof aiNudgeRequestSchema>) {
     const input = aiNudgeRequestSchema.parse(payload);
     const context = await this.plansService.getBlockWithContext(userId, input.planBlockId);
+    const profile = await this.profileService.getProfile(userId);
+    const energyProfileNudgeContext = this.describeNudgeEnergyProfile(
+      profile.energyProfile,
+      context.block.label
+    );
 
     const prompt = [
       "You are Omni nudge engine.",
@@ -88,6 +95,7 @@ export class AiService {
       `Current block: ${JSON.stringify(context.block)}`,
       `Plan: ${JSON.stringify(context.plan)}`,
       `Recent signals: ${JSON.stringify(context.recentSignals)}`,
+      `Onboarding profile context: ${energyProfileNudgeContext}`,
       "Keep alternatives concise."
     ].join("\n");
 
@@ -239,6 +247,80 @@ export class AiService {
     }
 
     return generated;
+  }
+
+  private describePlanEnergyProfile(energyProfile: Record<string, any>): string {
+    const onboardingVersion =
+      typeof energyProfile?.onboardingVersion === "number" ? energyProfile.onboardingVersion : null;
+    const weeklyBlocks = Array.isArray(energyProfile?.weeklyBlocks) ? energyProfile.weeklyBlocks : [];
+    const sleepEnergy = this.isPlainObject(energyProfile?.sleepEnergy) ? energyProfile.sleepEnergy : null;
+    const dayOpen = this.isPlainObject(energyProfile?.dayOpen) ? energyProfile.dayOpen : null;
+
+    return JSON.stringify({
+      onboardingVersion,
+      weeklyBlocks,
+      sleepEnergy,
+      dayOpen
+    });
+  }
+
+  private describeNudgeEnergyProfile(energyProfile: Record<string, any>, blockLabel: string): string {
+    const weeklyBlocks = Array.isArray(energyProfile?.weeklyBlocks) ? energyProfile.weeklyBlocks : [];
+    const sleepEnergy = this.isPlainObject(energyProfile?.sleepEnergy) ? energyProfile.sleepEnergy : null;
+    const dayOpen = this.isPlainObject(energyProfile?.dayOpen) ? energyProfile.dayOpen : null;
+
+    const normalizedLabel = blockLabel.toLowerCase();
+    const matchedBlockProfile =
+      weeklyBlocks.find((entry) => {
+        if (!this.isPlainObject(entry) || typeof entry.name !== "string") {
+          return false;
+        }
+        return normalizedLabel.includes(entry.name.toLowerCase());
+      }) ?? null;
+
+    const crashWindows = Array.isArray(sleepEnergy?.crashWindows)
+      ? sleepEnergy.crashWindows.filter((entry: unknown): entry is string => typeof entry === "string")
+      : [];
+
+    const currentWindow = this.currentTimeWindow();
+    const isLikelyCrashWindowNow = crashWindows.some((window) => {
+      const normalized = window.toLowerCase();
+      if (normalized === "late night") {
+        return currentWindow === "late-night";
+      }
+      return normalized === currentWindow;
+    });
+
+    return JSON.stringify({
+      crashWindows,
+      currentWindow,
+      isLikelyCrashWindowNow,
+      suggestSleepAdjustments:
+        sleepEnergy && typeof sleepEnergy.suggestSleepAdjustments === "boolean"
+          ? sleepEnergy.suggestSleepAdjustments
+          : null,
+      lastEnergy: dayOpen && typeof dayOpen.lastEnergy === "string" ? dayOpen.lastEnergy : null,
+      lastMood: dayOpen && typeof dayOpen.lastMood === "string" ? dayOpen.lastMood : null,
+      matchedBlockProfile
+    });
+  }
+
+  private currentTimeWindow(): "morning" | "afternoon" | "evening" | "late-night" {
+    const hour = new Date().getUTCHours();
+    if (hour >= 5 && hour < 12) {
+      return "morning";
+    }
+    if (hour >= 12 && hour < 17) {
+      return "afternoon";
+    }
+    if (hour >= 17 && hour < 22) {
+      return "evening";
+    }
+    return "late-night";
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, any> {
+    return typeof value === "object" && value !== null && Array.isArray(value) === false;
   }
 
   private async generateJson<TSchema extends z.ZodTypeAny>(

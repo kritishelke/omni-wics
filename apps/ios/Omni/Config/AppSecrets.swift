@@ -45,7 +45,6 @@ enum StorageKeys {
     static let session = "omni.session"
     static let onboardingComplete = "omni.onboarding.complete"
     static let selectedTab = "omni.selected.tab"
-    static let screenTimeEnabled = "omni.screenTime.enabled"
     static let coachMode = "omni.coachMode"
     static let checkinCadence = "omni.checkinCadence"
 }

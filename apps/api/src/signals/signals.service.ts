@@ -3,7 +3,8 @@ import {
   acceptNudgeRequestSchema,
   aiNudgeRequestSchema,
   checkinRequestSchema,
-  driftRequestSchema
+  driftRequestSchema,
+  focusSessionStartRequestSchema
 } from "@omni/shared";
 import { z } from "zod";
 import { AiService } from "../ai/ai.service";
@@ -30,9 +31,13 @@ export class SignalsService {
         type: "checkin",
         related_block_id: input.planBlockId,
         payload: {
+          done: input.done ?? false,
           progress: input.progress,
           focus: input.focus,
-          energy: input.energy ?? null
+          energy: input.energy ?? null,
+          happenedTags: input.happenedTags ?? [],
+          derailReason: input.derailReason ?? null,
+          driftMinutes: input.driftMinutes ?? null
         }
       })
       .select("id")
@@ -50,9 +55,13 @@ export class SignalsService {
         planBlockId: input.planBlockId,
         triggerType: "cadence",
         signalPayload: {
+          done: input.done ?? false,
           progress: input.progress,
           focus: input.focus,
-          energy: input.energy ?? null
+          energy: input.energy ?? null,
+          happenedTags: input.happenedTags ?? [],
+          derailReason: input.derailReason ?? null,
+          driftMinutes: input.driftMinutes ?? null
         }
       });
     }
@@ -75,6 +84,7 @@ export class SignalsService {
         related_block_id: input.planBlockId ?? null,
         payload: {
           minutes: input.minutes ?? null,
+          derailReason: input.derailReason ?? null,
           apps: input.apps ?? []
         }
       })
@@ -92,6 +102,7 @@ export class SignalsService {
         triggerType: "drift",
         signalPayload: {
           minutes: input.minutes ?? null,
+          derailReason: input.derailReason ?? null,
           apps: input.apps ?? []
         }
       });
@@ -101,6 +112,37 @@ export class SignalsService {
       ok: true as const,
       signalId: signalRow.id,
       nudge
+    };
+  }
+
+  async submitFocusSessionStart(
+    userId: string,
+    payload: z.infer<typeof focusSessionStartRequestSchema>
+  ) {
+    const input = focusSessionStartRequestSchema.parse(payload);
+
+    const { data: signalRow, error } = await this.supabaseService.admin
+      .from("signals")
+      .insert({
+        user_id: userId,
+        type: "focusSessionStart",
+        related_block_id: input.planBlockId ?? null,
+        payload: {
+          plannedMinutes: input.plannedMinutes ?? null
+        }
+      })
+      .select("id")
+      .single();
+
+    if (error || !signalRow) {
+      throw new Error(
+        `Failed to persist focus session start signal: ${error?.message ?? "Missing row"}`
+      );
+    }
+
+    return {
+      ok: true as const,
+      signalId: signalRow.id
     };
   }
 
@@ -152,6 +194,10 @@ export class SignalsService {
 
   parseDriftBody(body: unknown) {
     return driftRequestSchema.parse(body);
+  }
+
+  parseFocusSessionStartBody(body: unknown) {
+    return focusSessionStartRequestSchema.parse(body);
   }
 
   parseAcceptNudgeBody(body: unknown) {

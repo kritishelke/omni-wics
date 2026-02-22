@@ -11,6 +11,12 @@ Health:
 curl "$API_BASE_URL/health"
 ```
 
+Integrations status:
+```bash
+curl "$API_BASE_URL/integrations/status" \
+  -H "Authorization: Bearer $SUPABASE_JWT"
+```
+
 Start Google OAuth:
 ```bash
 curl -X POST "$API_BASE_URL/google/oauth/start" \
@@ -21,7 +27,7 @@ curl -X POST "$API_BASE_URL/google/oauth/start" \
 
 Calendar events:
 ```bash
-curl "$API_BASE_URL/google/calendar/events?date=2026-02-21" \
+curl "$API_BASE_URL/google/calendar/events?date=2026-02-22" \
   -H "Authorization: Bearer $SUPABASE_JWT"
 ```
 
@@ -31,18 +37,18 @@ curl "$API_BASE_URL/google/tasks" \
   -H "Authorization: Bearer $SUPABASE_JWT"
 ```
 
-Complete task:
-```bash
-curl -X POST "$API_BASE_URL/google/tasks/<task_id>/complete" \
-  -H "Authorization: Bearer $SUPABASE_JWT"
-```
-
 Create task:
 ```bash
 curl -X POST "$API_BASE_URL/google/tasks/create" \
   -H "Authorization: Bearer $SUPABASE_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Quick task from Omni"}'
+  -d '{"title":"Review chemistry notes","dueAt":"2026-02-22T18:00:00.000Z","estimatedMinutes":45}'
+```
+
+Complete task:
+```bash
+curl -X POST "$API_BASE_URL/google/tasks/<task_id>/complete" \
+  -H "Authorization: Bearer $SUPABASE_JWT"
 ```
 
 Generate plan:
@@ -50,21 +56,71 @@ Generate plan:
 curl -X POST "$API_BASE_URL/ai/plan" \
   -H "Authorization: Bearer $SUPABASE_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"date":"2026-02-21","energy":"med"}'
+  -d '{"date":"2026-02-22","energy":"med"}'
 ```
 
-Signal drift:
+Get today's plan:
+```bash
+curl "$API_BASE_URL/plans/today" \
+  -H "Authorization: Bearer $SUPABASE_JWT"
+```
+
+Submit check-in:
+```bash
+curl -X POST "$API_BASE_URL/signals/checkin" \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"planBlockId":"<block_uuid>","done":false,"progress":55,"focus":6,"energy":"med","happenedTags":["distracted"],"derailReason":"social media","driftMinutes":10}'
+```
+
+Submit drift:
 ```bash
 curl -X POST "$API_BASE_URL/signals/drift" \
   -H "Authorization: Bearer $SUPABASE_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"planBlockId":"<uuid>","minutes":7,"apps":["YouTube"]}'
+  -d '{"planBlockId":"<block_uuid>","minutes":7,"derailReason":"social media","apps":["YouTube"]}'
 ```
 
-Day close:
+Start focus session signal:
 ```bash
-curl -X POST "$API_BASE_URL/ai/day-close" \
+curl -X POST "$API_BASE_URL/signals/focus-session-start" \
   -H "Authorization: Bearer $SUPABASE_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"date":"2026-02-21","completedOutcomes":["Draft done"],"energyEnd":"med"}'
+  -d '{"planBlockId":"<block_uuid>","plannedMinutes":50}'
+```
+
+Manual nudge request:
+```bash
+curl -X POST "$API_BASE_URL/ai/nudge" \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"planBlockId":"<block_uuid>","triggerType":"manual","signalPayload":{"reason":"swap requested"}}'
+```
+
+Break task into subtasks:
+```bash
+curl -X POST "$API_BASE_URL/ai/breakdown" \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Study for biology exam","dueAt":"2026-02-24T17:00:00.000Z"}'
+```
+
+Insights today:
+```bash
+curl "$API_BASE_URL/insights/today" \
+  -H "Authorization: Bearer $SUPABASE_JWT"
+```
+
+Rewards weekly:
+```bash
+curl "$API_BASE_URL/rewards/weekly" \
+  -H "Authorization: Bearer $SUPABASE_JWT"
+```
+
+Claim weekly reward:
+```bash
+curl -X POST "$API_BASE_URL/rewards/claim" \
+  -H "Authorization: Bearer $SUPABASE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```

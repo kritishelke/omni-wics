@@ -1,55 +1,72 @@
 import SwiftUI
-import FamilyControls
 
 struct AuthView: View {
     @EnvironmentObject var appState: AppState
+
     @State private var email = ""
     @State private var password = ""
     @State private var isSubmitting = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Image("AppLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 88, height: 88)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
+        ZStack {
+            LinearGradient(
+                colors: [Color.omniBackground, Color.omniCard],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            Text("Omni")
-                .font(.largeTitle.bold())
+            VStack(spacing: 24) {
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 92, height: 92)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
 
-            Text("Sign in to start planning your day")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                Text("Omni")
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.white)
 
-            VStack(spacing: 10) {
-                TextField("Email", text: $email)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.emailAddress)
-                    .textFieldStyle(.roundedBorder)
+                Text("Sign in to start your day plan")
+                    .foregroundStyle(Color.omniMuted)
 
-                SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
+                VStack(spacing: 10) {
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .autocorrectionDisabled()
+                        .padding(12)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    SecureField("Password", text: $password)
+                        .padding(12)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .foregroundStyle(.white)
+
+                Button {
+                    submit(signup: false)
+                } label: {
+                    Text("Sign In")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccent)
+                .disabled(isSubmitting)
+
+                Button {
+                    submit(signup: true)
+                } label: {
+                    Text("Create Account")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isSubmitting)
             }
-
-            Button("Sign In") {
-                submit(signup: false)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isSubmitting)
-
-            Button("Create Account") {
-                submit(signup: true)
-            }
-            .buttonStyle(.bordered)
-            .disabled(isSubmitting)
-
-            Text("Use email/password auth via Supabase.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            .padding(24)
         }
-        .padding()
     }
 
     private func submit(signup: Bool) {
@@ -75,133 +92,541 @@ struct AuthView: View {
 
 struct OnboardingFlowView: View {
     @EnvironmentObject var appState: AppState
+
     @State private var step = 0
-    @State private var energy = "med"
-    @State private var coachMode = UserDefaults.standard.string(forKey: StorageKeys.coachMode) ?? "balanced"
-    @State private var cadence = UserDefaults.standard.integer(forKey: StorageKeys.checkinCadence)
+    @State private var selectedBlocks: Set<String> = []
+    @State private var blockDrafts: [String: BlockDraft] = [:]
+    @State private var currentBlockIndex = 0
     @State private var sleepTime = ""
     @State private var wakeTime = ""
-    @State private var showPicker = false
+    @State private var typicalSleepHours = 7.5
+    @State private var crashWindows: Set<String> = []
+    @State private var suggestSleepAdjustments = true
+    @State private var dayOpenEnergy = "med"
+    @State private var dayOpenMood = ""
+    @State private var isConnectingGoogle = false
+    @State private var isSavingProfile = false
+    @State private var isGeneratingDay = false
+    @State private var hasGeneratedPlan = false
 
+    private let blockOptions = [
+        "Study",
+        "Homework",
+        "Classes",
+        "Gym",
+        "Social",
+        "Clubs",
+        "Content",
+        "Reading",
+        "Job",
+        "Errands",
+        "Other"
+    ]
+    private let timeWindowOptions = ["morning", "afternoon", "night"]
+    private let crashWindowOptions = ["afternoon", "evening", "late night"]
     private let energies = ["low", "med", "high"]
+    private let chipColumns = [GridItem(.adaptive(minimum: 110), spacing: 8)]
+
+    private struct BlockDraft {
+        var avgDurationMinutes = 120
+        var daysPerWeek = 5
+        var difficulty = 3
+        var enjoyment = 3
+        var bestWindows: Set<String> = ["morning"]
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                ProgressView(value: Double(step + 1), total: 5)
+            ZStack {
+                LinearGradient(
+                    colors: [Color.omniBackground, Color.omniCard],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                switch step {
-                case 0:
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Welcome to Omni")
-                            .font(.title2.bold())
-                        Text("Calendar + tasks + focus nudges.")
-                            .foregroundStyle(.secondary)
-                        Button("Continue") { step += 1 }
-                            .buttonStyle(.borderedProminent)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        ProgressView(value: progressValue, total: totalProgressValue)
+                            .tint(Color.omniAccent)
+
+                        switch step {
+                        case 0:
+                            welcomeStep
+                        case 1:
+                            connectGoogleStep
+                        case 2:
+                            weeklyBlocksStep
+                        case 3:
+                            blockLoopStep
+                        case 4:
+                            sleepEnergyStep
+                        default:
+                            dayOpenStep
+                        }
+
+                        Spacer(minLength: 20)
                     }
+                    .padding(24)
+                }
+            }
+            .navigationTitle("Onboarding")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
 
-                case 1:
-                    VStack(alignment: .leading, spacing: 12) {
+    private var googleConnected: Bool {
+        let status = appState.integrationsStatus
+        return status?.googleCalendarConnected == true && status?.googleTasksConnected == true
+    }
+
+    private var orderedSelectedBlocks: [String] {
+        blockOptions.filter { selectedBlocks.contains($0) }
+    }
+
+    private var currentBlockName: String? {
+        guard currentBlockIndex < orderedSelectedBlocks.count else { return nil }
+        return orderedSelectedBlocks[currentBlockIndex]
+    }
+
+    private var currentBlockDraft: BlockDraft {
+        guard let currentBlockName else { return BlockDraft() }
+        return blockDrafts[currentBlockName] ?? BlockDraft()
+    }
+
+    private var totalProgressValue: Double {
+        Double(max(1, orderedSelectedBlocks.count + 5))
+    }
+
+    private var progressValue: Double {
+        switch step {
+        case 0:
+            return 1
+        case 1:
+            return 2
+        case 2:
+            return 3
+        case 3:
+            return Double(4 + min(currentBlockIndex, max(0, orderedSelectedBlocks.count - 1)))
+        case 4:
+            return Double(4 + orderedSelectedBlocks.count)
+        default:
+            return Double(5 + orderedSelectedBlocks.count)
+        }
+    }
+
+    private var welcomeStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Omni runs your day like an OS.")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+
+            Text("Plans, nudges, and adapts when you drift.")
+                .foregroundStyle(Color.omniMuted)
+
+            Button("Start Setup") {
+                step = 1
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
+        }
+    }
+
+    private var connectGoogleStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Connect Google")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+
+            Text("Connect Calendar + Tasks so Omni can build your day.")
+                .foregroundStyle(Color.omniMuted)
+
+            if googleConnected {
+                Label("Omni can now see constraints and workload.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Color.omniAccent)
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            if googleConnected == false {
+                Button {
+                    Task {
+                        guard isConnectingGoogle == false else { return }
+                        isConnectingGoogle = true
+                        _ = await appState.connectGoogle()
+                        isConnectingGoogle = false
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isConnectingGoogle {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
                         Text("Connect Google")
-                            .font(.title2.bold())
-                        Text("Required for Calendar and Tasks sync")
-                            .foregroundStyle(.secondary)
-
-                        Button("Connect Google") {
-                            Task {
-                                if await appState.connectGoogle() {
-                                    step += 1
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
                     }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccent)
+                .disabled(isConnectingGoogle)
+            }
 
-                case 2:
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Screen Time Setup")
-                            .font(.title2.bold())
-                        Text("Select distracting apps. If denied, manual drift still works.")
-                            .foregroundStyle(.secondary)
+            Button("Continue") {
+                step = 2
+            }
+            .buttonStyle(.bordered)
+            .disabled(googleConnected == false)
+        }
+    }
 
-                        Button("Authorize Screen Time") {
-                            Task { await appState.screenTimeManager.requestAuthorization() }
-                        }
+    private var weeklyBlocksStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Choose Your Weekly Blocks")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
 
-                        Button("Pick Apps") { showPicker = true }
-                            .disabled(appState.screenTimeManager.authorizationStatus != .approved)
+            Text("Select the blocks Omni should optimize around.")
+                .foregroundStyle(Color.omniMuted)
 
-                        Button("Continue") {
-                            appState.screenTimeManager.persistSelection()
-                            step += 1
-                        }
-                        .buttonStyle(.borderedProminent)
+            LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                ForEach(blockOptions, id: \.self) { block in
+                    chip(
+                        title: block,
+                        selected: selectedBlocks.contains(block)
+                    ) {
+                        toggleChip(block, in: &selectedBlocks)
                     }
-                    .familyActivityPicker(isPresented: $showPicker, selection: $appState.screenTimeManager.selection)
+                }
+            }
 
-                case 3:
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Preferences")
-                            .font(.title2.bold())
-
-                        Picker("Coach Mode", selection: $coachMode) {
-                            Text("Gentle").tag("gentle")
-                            Text("Balanced").tag("balanced")
-                            Text("Strict").tag("strict")
-                        }
-                        .pickerStyle(.segmented)
-
-                        Stepper("Check-in cadence: \(cadence <= 0 ? 60 : cadence) min", value: $cadence, in: 15...180, step: 15)
-
-                        TextField("Sleep (optional, e.g. 23:00)", text: $sleepTime)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Wake (optional, e.g. 07:00)", text: $wakeTime)
-                            .textFieldStyle(.roundedBorder)
-
-                        Button("Save & Continue") {
-                            Task {
-                                let realCadence = cadence <= 0 ? 60 : cadence
-                                UserDefaults.standard.set(coachMode, forKey: StorageKeys.coachMode)
-                                UserDefaults.standard.set(realCadence, forKey: StorageKeys.checkinCadence)
-                                await appState.savePreferences(
-                                    coachMode: coachMode,
-                                    cadence: realCadence,
-                                    sleepTime: sleepTime.isEmpty ? nil : sleepTime,
-                                    wakeTime: wakeTime.isEmpty ? nil : wakeTime
-                                )
-                                step += 1
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
+            Button("Next") {
+                for block in orderedSelectedBlocks {
+                    if blockDrafts[block] == nil {
+                        blockDrafts[block] = BlockDraft()
                     }
+                }
+                currentBlockIndex = 0
+                step = 3
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
+            .disabled(orderedSelectedBlocks.isEmpty)
+        }
+    }
 
-                default:
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Generate My Day")
-                            .font(.title2.bold())
+    private var blockLoopStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let blockName = currentBlockName {
+                Text("Block Profile")
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                Text("\(currentBlockIndex + 1) of \(orderedSelectedBlocks.count): \(blockName)")
+                    .foregroundStyle(Color.omniMuted)
 
-                        Picker("Energy", selection: $energy) {
-                            ForEach(energies, id: \.self) { value in
-                                Text(value.uppercased()).tag(value)
+                Stepper(
+                    "Avg duration/day: \(currentBlockDraft.avgDurationMinutes) min",
+                    value: Binding(
+                        get: { currentBlockDraft.avgDurationMinutes },
+                        set: { value in
+                            updateCurrentBlockDraft { draft in
+                                draft.avgDurationMinutes = value
                             }
                         }
-                        .pickerStyle(.segmented)
+                    ),
+                    in: 15...600,
+                    step: 15
+                )
+                .foregroundStyle(.white)
 
-                        Button("Generate My Day") {
-                            Task {
-                                await appState.generateDay(energy: energy)
-                                appState.setOnboardingComplete()
+                Stepper(
+                    "Days/week: \(currentBlockDraft.daysPerWeek)",
+                    value: Binding(
+                        get: { currentBlockDraft.daysPerWeek },
+                        set: { value in
+                            updateCurrentBlockDraft { draft in
+                                draft.daysPerWeek = value
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                    ),
+                    in: 1...7
+                )
+                .foregroundStyle(.white)
+
+                Stepper(
+                    "Difficulty: \(currentBlockDraft.difficulty)/5",
+                    value: Binding(
+                        get: { currentBlockDraft.difficulty },
+                        set: { value in
+                            updateCurrentBlockDraft { draft in
+                                draft.difficulty = value
+                            }
+                        }
+                    ),
+                    in: 1...5
+                )
+                .foregroundStyle(.white)
+
+                Stepper(
+                    "Enjoyment: \(currentBlockDraft.enjoyment)/5",
+                    value: Binding(
+                        get: { currentBlockDraft.enjoyment },
+                        set: { value in
+                            updateCurrentBlockDraft { draft in
+                                draft.enjoyment = value
+                            }
+                        }
+                    ),
+                    in: 1...5
+                )
+                .foregroundStyle(.white)
+
+                Text("Best time window")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+
+                LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                    ForEach(timeWindowOptions, id: \.self) { window in
+                        chip(
+                            title: window.capitalized,
+                            selected: currentBlockDraft.bestWindows.contains(window)
+                        ) {
+                            updateCurrentBlockDraft { draft in
+                                toggleChip(window, in: &draft.bestWindows)
+                            }
+                        }
                     }
                 }
 
-                Spacer()
+                Button(isLastBlock ? "Done" : "Save & Next") {
+                    if isLastBlock {
+                        step = 4
+                    } else {
+                        currentBlockIndex += 1
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.omniAccent)
+                .disabled(currentBlockDraft.bestWindows.isEmpty)
+            } else {
+                Text("No block selected.")
+                    .foregroundStyle(Color.omniMuted)
             }
-            .padding()
-            .navigationTitle("Onboarding")
         }
+    }
+
+    private var sleepEnergyStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Sleep & Energy Profile")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+
+            TextField("Usual sleep time (e.g. 11:30 PM)", text: $sleepTime)
+                .padding(12)
+                .background(Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(.white)
+
+            TextField("Usual wake time (e.g. 7:00 AM)", text: $wakeTime)
+                .padding(12)
+                .background(Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(.white)
+
+            Stepper(
+                "Typical sleep duration: \(String(format: "%.1f", typicalSleepHours)) h",
+                value: $typicalSleepHours,
+                in: 3...12,
+                step: 0.5
+            )
+            .foregroundStyle(.white)
+
+            Text("When do you crash?")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            LazyVGrid(columns: chipColumns, alignment: .leading, spacing: 8) {
+                ForEach(crashWindowOptions, id: \.self) { window in
+                    chip(
+                        title: window.capitalized,
+                        selected: crashWindows.contains(window)
+                    ) {
+                        toggleChip(window, in: &crashWindows)
+                    }
+                }
+            }
+
+            Toggle("Let Omni suggest sleep/wake adjustments", isOn: $suggestSleepAdjustments)
+                .tint(Color.omniAccent)
+                .foregroundStyle(.white)
+
+            Button {
+                Task {
+                    guard isSavingProfile == false else { return }
+                    isSavingProfile = true
+
+                    let weeklyPayload = orderedSelectedBlocks.compactMap { blockName in
+                        guard let draft = blockDrafts[blockName] else { return nil }
+                        return OnboardingWeeklyBlockProfile(
+                            name: blockName,
+                            avgDurationMinutes: draft.avgDurationMinutes,
+                            daysPerWeek: draft.daysPerWeek,
+                            difficulty: draft.difficulty,
+                            enjoyment: draft.enjoyment,
+                            bestWindows: draft.bestWindows.sorted()
+                        )
+                    }
+
+                    let sleepPayload = OnboardingSleepEnergyProfile(
+                        usualSleepTime: sleepTime,
+                        usualWakeTime: wakeTime,
+                        typicalSleepHours: typicalSleepHours,
+                        crashWindows: crashWindows.sorted(),
+                        suggestSleepAdjustments: suggestSleepAdjustments
+                    )
+
+                    let saved = await appState.saveOnboardingIntake(
+                        weeklyBlocks: weeklyPayload,
+                        sleepEnergy: sleepPayload
+                    )
+                    isSavingProfile = false
+
+                    if saved {
+                        step = 5
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if isSavingProfile {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(isSavingProfile ? "Saving..." : "Continue")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
+            .disabled(isSavingProfile || sleepTime.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || wakeTime.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    private var dayOpenStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("First Plan Generation")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+
+            Picker("Energy", selection: $dayOpenEnergy) {
+                ForEach(energies, id: \.self) { value in
+                    Text(value.capitalized).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            TextField("Mood (optional)", text: $dayOpenMood)
+                .padding(12)
+                .background(Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(.white)
+
+            Button {
+                Task {
+                    guard isGeneratingDay == false else { return }
+                    isGeneratingDay = true
+                    hasGeneratedPlan = await appState.generateDay(
+                        energy: dayOpenEnergy,
+                        mood: dayOpenMood,
+                        stickyBlocks: orderedSelectedBlocks
+                    )
+                    isGeneratingDay = false
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if isGeneratingDay {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(isGeneratingDay ? "Generating..." : "Generate My Day")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
+            .disabled(isGeneratingDay)
+
+            if hasGeneratedPlan, let generatedPlan = appState.planStore.plan {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Preview")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+
+                    Text("Today’s Top 3 Outcomes")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Color.omniMuted)
+
+                    ForEach(Array(generatedPlan.topOutcomes.prefix(3)), id: \.self) { outcome in
+                        Text("• \(outcome)")
+                            .foregroundStyle(.white)
+                    }
+
+                    Text("Draft blocks around calendar events")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Color.omniMuted)
+
+                    ForEach(Array(generatedPlan.blocks.prefix(3)), id: \.effectiveId) { block in
+                        Text("• \(block.label)")
+                            .foregroundStyle(.white)
+                    }
+
+                    Text("Suggested Shutdown Target")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(Color.omniMuted)
+                    Text(generatedPlan.shutdownSuggestion ?? "No shutdown target suggested yet.")
+                        .foregroundStyle(.white)
+                }
+                .padding(12)
+                .background(Color.black.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
+            Button("Start Day") {
+                appState.setOnboardingComplete()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.omniAccent)
+            .disabled(hasGeneratedPlan == false)
+        }
+    }
+
+    private var isLastBlock: Bool {
+        currentBlockIndex >= max(0, orderedSelectedBlocks.count - 1)
+    }
+
+    private func updateCurrentBlockDraft(_ update: (inout BlockDraft) -> Void) {
+        guard let name = currentBlockName else { return }
+        var draft = blockDrafts[name] ?? BlockDraft()
+        update(&draft)
+        blockDrafts[name] = draft
+    }
+
+    private func toggleChip(_ value: String, in set: inout Set<String>) {
+        if set.contains(value) {
+            set.remove(value)
+        } else {
+            set.insert(value)
+        }
+    }
+
+    private func chip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .background(selected ? Color.omniAccent.opacity(0.25) : Color.white.opacity(0.1))
+                .foregroundStyle(selected ? Color.omniAccent : Color.white)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

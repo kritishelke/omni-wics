@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		A10000010000000000000001 /* OmniApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* OmniApp.swift */; };
 		A10000020000000000000001 /* OmniDeviceActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* OmniDeviceActivityMonitor.swift */; };
-		A10000030000000000000001 /* OmniDeviceActivityMonitor.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000220000000000000001 /* OmniDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000040000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* Assets.xcassets */; };
 		A10000050000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000190000000000000001 /* Models.swift */; };
 		A10000060000000000000001 /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001A0000000000000001 /* AppSecrets.swift */; };
@@ -23,30 +22,6 @@
 		A100000E0000000000000001 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000240000000000000001 /* AppRootView.swift */; };
 		FCE09B902F4AA63D00F8987A /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = FCE09B8F2F4A9C6C00F8987A /* Secrets.plist */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		A10001000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A10002000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A10003010000000000000001;
-			remoteInfo = OmniDeviceActivityMonitor;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		A10004000000000000000001 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				A10000030000000000000001 /* OmniDeviceActivityMonitor.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A10000110000000000000001 /* OmniApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmniApp.swift; sourceTree = "<group>"; };
@@ -215,12 +190,10 @@
 				A10007000000000000000001 /* Sources */,
 				A10005000000000000000001 /* Frameworks */,
 				A10007010000000000000001 /* Resources */,
-				A10004000000000000000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				A10009000000000000000001 /* PBXTargetDependency */,
 			);
 			name = Omni;
 			productName = Omni;
@@ -329,14 +302,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		A10009000000000000000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A10003010000000000000001 /* OmniDeviceActivityMonitor */;
-			targetProxy = A10001000000000000000001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
 		A10010000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -372,7 +337,8 @@
 		A10010100000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Omni/Omni.entitlements;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -400,7 +366,8 @@
 		A10010110000000000000001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Omni/Omni.entitlements;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;

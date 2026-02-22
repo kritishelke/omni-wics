@@ -9,6 +9,9 @@ const dbProfileSchema = z.object({
   checkin_cadence_minutes: z.number(),
   sleep_time: z.string().nullable(),
   wake_time: z.string().nullable(),
+  sleep_suggestions_enabled: z.boolean().default(true),
+  pause_monitoring: z.boolean().default(false),
+  push_notifications_enabled: z.boolean().default(true),
   energy_profile: z.record(z.any()),
   distraction_profile: z.record(z.any())
 });
@@ -41,7 +44,7 @@ export class ProfileService {
     const { data, error } = await this.supabaseService.admin
       .from("user_profiles")
       .select(
-        "id, coach_mode, checkin_cadence_minutes, sleep_time, wake_time, energy_profile, distraction_profile"
+        "id, coach_mode, checkin_cadence_minutes, sleep_time, wake_time, sleep_suggestions_enabled, pause_monitoring, push_notifications_enabled, energy_profile, distraction_profile"
       )
       .eq("id", userId)
       .single();
@@ -58,6 +61,9 @@ export class ProfileService {
       checkinCadenceMinutes: parsed.checkin_cadence_minutes,
       sleepTime: parsed.sleep_time,
       wakeTime: parsed.wake_time,
+      sleepSuggestionsEnabled: parsed.sleep_suggestions_enabled,
+      pauseMonitoring: parsed.pause_monitoring,
+      pushNotificationsEnabled: parsed.push_notifications_enabled,
       energyProfile: parsed.energy_profile,
       distractionProfile: parsed.distraction_profile
     };
@@ -75,6 +81,11 @@ export class ProfileService {
       updatePayload.checkin_cadence_minutes = parsed.checkinCadenceMinutes;
     if (parsed.sleepTime !== undefined) updatePayload.sleep_time = parsed.sleepTime;
     if (parsed.wakeTime !== undefined) updatePayload.wake_time = parsed.wakeTime;
+    if (parsed.sleepSuggestionsEnabled !== undefined)
+      updatePayload.sleep_suggestions_enabled = parsed.sleepSuggestionsEnabled;
+    if (parsed.pauseMonitoring !== undefined) updatePayload.pause_monitoring = parsed.pauseMonitoring;
+    if (parsed.pushNotificationsEnabled !== undefined)
+      updatePayload.push_notifications_enabled = parsed.pushNotificationsEnabled;
     if (parsed.energyProfile !== undefined) updatePayload.energy_profile = parsed.energyProfile;
     if (parsed.distractionProfile !== undefined)
       updatePayload.distraction_profile = parsed.distractionProfile;

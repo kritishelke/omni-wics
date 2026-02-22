@@ -1,4 +1,10 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@omni/shared": ["../../packages/shared/dist/index"],
+      "@omni/shared/*": ["../../packages/shared/dist/*"]
+    }
+  },
   "exclude": ["test", "**/*.spec.ts"]
 }

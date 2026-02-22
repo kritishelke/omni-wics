@@ -5,10 +5,10 @@ struct AppRootView: View {
 
     var body: some View {
         Group {
-            if appState.isAuthenticated == false {
+            if appState.sessionStore.isAuthenticated == false {
                 AuthView()
                     .environmentObject(appState)
-            } else if appState.onboardingComplete == false {
+            } else if appState.sessionStore.onboardingComplete == false {
                 OnboardingFlowView()
                     .environmentObject(appState)
             } else {
@@ -20,12 +20,7 @@ struct AppRootView: View {
             appState.bootstrap()
         }
         .onOpenURL { url in
-            if url.host == "now" {
-                appState.selectedTab = 0
-            }
-            Task {
-                await appState.flushSharedDriftEvents()
-            }
+            appState.handleDeepLink(url)
         }
         .alert("Error", isPresented: Binding(
             get: { appState.errorMessage != nil },
