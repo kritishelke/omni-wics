@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -77,24 +77,24 @@
 		};
 		A10006010000000000000001 /* Omni */ = {
 			isa = PBXGroup;
-			path = Omni;
-			sourceTree = "<group>";
 			children = (
 				A10006040000000000000001 /* App */,
 				A10006050000000000000001 /* Config */,
 				A10000130000000000000001 /* Info.plist */,
 				A10000150000000000000001 /* Omni.entitlements */,
 			);
+			path = Omni;
+			sourceTree = "<group>";
 		};
 		A10006020000000000000001 /* OmniDeviceActivityMonitor */ = {
 			isa = PBXGroup;
-			path = OmniDeviceActivityMonitor;
-			sourceTree = "<group>";
 			children = (
 				A10000120000000000000001 /* OmniDeviceActivityMonitor.swift */,
 				A10000140000000000000001 /* Info.plist */,
 				A10000160000000000000001 /* OmniDeviceActivityMonitor.entitlements */,
 			);
+			path = OmniDeviceActivityMonitor;
+			sourceTree = "<group>";
 		};
 		A10006030000000000000001 /* Products */ = {
 			isa = PBXGroup;
@@ -107,19 +107,19 @@
 		};
 		A10006040000000000000001 /* App */ = {
 			isa = PBXGroup;
-			path = App;
-			sourceTree = "<group>";
 			children = (
 				A10000110000000000000001 /* OmniApp.swift */,
 			);
+			path = App;
+			sourceTree = "<group>";
 		};
 		A10006050000000000000001 /* Config */ = {
 			isa = PBXGroup;
-			path = Config;
-			sourceTree = "<group>";
 			children = (
 				A10000170000000000000001 /* Secrets.example.plist */,
 			);
+			path = Config;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -278,9 +278,11 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Omni/Omni.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Omni/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Omni;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -291,7 +293,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.omni;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wics.omni;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -304,16 +306,18 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Omni/Omni.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = BG6H6LJBZK;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Omni/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Omni;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.omni;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wics.omni;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
